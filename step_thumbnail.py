@@ -142,7 +142,7 @@ def discover_image_models(api_key: str) -> list[str]:
             elif "pro" in name:
                 score += 60
             if "preview" in name:
-                score += 1
+                score -= 2                 # GA release beats same-name preview
             found.append((-score, name))
         found.sort()
         _discovered_images = [name for _, name in found]
@@ -516,6 +516,7 @@ def list_models(api_key: str) -> None:
 
 def _quick_image_test(client, model: str) -> str:
     """One tiny real generation - the only 100% reliable capability check."""
+    from google.genai import types
     try:
         resp = client.models.generate_content(
             model=model,
