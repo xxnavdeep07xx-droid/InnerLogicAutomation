@@ -92,6 +92,14 @@ _IMAGE_FALLBACKS = [
     "gemini-2.5-flash-image",
 ]
 _IMAGE_ENV = (os.getenv("GEMINI_IMAGE_MODEL", "") or "").strip()
+# Imagen uses the separate :predict endpoint with its own quota buckets -
+# sometimes available when the generateContent image models are not.
+_IMAGEN_FALLBACKS = [
+    "imagen-4.0-fast-generate-001",
+    "imagen-4.0-generate-001",
+    "imagen-3.0-fast-generate-001",
+    "imagen-3.0-generate-002",
+]
 _TEXT_FIRST = ((os.getenv("GEMINI_THUMB_MODEL", "") or "").strip()
                or (_resolve_models() or ["gemini-flash-latest"])[0])
 VERIFY_MODELS = list(dict.fromkeys(
@@ -434,6 +442,50 @@ def _extract_image(resp) -> tuple[bytes, str] | None:
     return None
 
 
+def imagen_image(prompt: str, aspect: str, api_key: str) -> tuple[bytes, str, str]:
+    """Imagen fallback via REST :predict (own quota bucket).
+
+    Returns (bytes, mime, model_used). Raises on total failure."""
+    import requests as _rq
+    last = ""
+    for model in _IMAGEN_FALLBACKS:
+        for attempt in (1, 2):
+            try:
+                r = _rq.post(
+                    f"https://generativelanguage.googleapis.com/v1beta/"
+                    f"models/{model}:predict",
+                    headers={"x-goog-api-key": api_key},
+                    json={"instances": [{"prompt": prompt}],
+                          "parameters": {"sampleCount": 1,
+                                         "aspectRatio": aspect}},
+                    timeout=180)
+                if r.status_code == 200:
+                    preds = r.json().get("predictions", [])
+                    b64 = (preds[0].get("bytesBase64Encoded") if preds
+                           else None)
+                    if b64:
+                        import base64
+                        img = base64.b64decode(b64)
+                        print(f"      image ok (imagen fallback: {model})")
+                        return img, "image/png", model
+                    last = RuntimeError(f"{model}: no predictions")
+                else:
+                    last = RuntimeError(f"{model}: HTTP {r.status_code} "
+                                        f"{r.text[:120]}")
+                    if r.status_code == 404:
+                        break                  # model does not exist at all
+                    time.sleep(2)
+            except Exception as exc:
+                last = exc
+                time.sleep(2)
+        # only keep looping while the error says quota/availability, not 404
+        if "HTTP 404" in str(last):
+            continue
+        if last and "RESOURCE_EXHAUSTED" in str(last):
+            continue
+    raise RuntimeError(f"imagen fallback failed ({str(last)[:90]})")
+
+
 def gemini_image(prompt: str, aspect: str, api_key: str) -> tuple[bytes, str, str]:
     """Generate one image; returns (bytes, mime, model_used). Raises on failure.
 
@@ -475,7 +527,8 @@ def gemini_image(prompt: str, aspect: str, api_key: str) -> tuple[bytes, str, st
                         skip_cfg = True   # model/API lacks image_config
                     time.sleep(2 if attempt == 1 else 5)
         print(f"      image gen: {model} failed ({str(last_exc)[:70]})")
-    raise RuntimeError(f"gemini image failed ({str(last_exc)[:90]})")
+    # last resort: Imagen :predict (separate quota bucket)
+    return imagen_image(prompt, aspect, api_key)
 
 
 def list_models(api_key: str) -> None:
@@ -511,7 +564,39 @@ def list_models(api_key: str) -> None:
     for model in candidates:
         verdict = _quick_image_test(client, model)
         print(f"    {model:38s} -> {verdict}")
+
+    print("  --- imagen :predict candidates (separate quota bucket) ---")
+    imagen_names = [n for n in raw if n.startswith("imagen")]
+    for model in list(dict.fromkeys(imagen_names + _IMAGEN_FALLBACKS)):
+        verdict = _quick_imagen_test(api_key, model)
+        print(f"    {model:38s} -> {verdict}")
     print("=" * 60)
+
+
+def _quick_imagen_test(api_key: str, model: str) -> str:
+    """Tiny :predict generation - Imagen models have their own quota."""
+    import requests as _rq
+    try:
+        r = _rq.post(
+            f"https://generativelanguage.googleapis.com/v1beta/"
+            f"models/{model}:predict",
+            headers={"x-goog-api-key": api_key},
+            json={"instances": [{"prompt": "A tiny plain blue circle on a "
+                                           "plain white background."}],
+                  "parameters": {"sampleCount": 1}},
+            timeout=120)
+        if r.status_code == 200:
+            preds = r.json().get("predictions", [])
+            if preds and preds[0].get("bytesBase64Encoded"):
+                kb = len(preds[0]["bytesBase64Encoded"]) * 3 // 4 // 1024
+                return f"WORKS ({kb} KB image)"
+            return "no predictions"
+        detail = str(r.text)
+        limits = re.findall(r"limit: (\d+)", detail)
+        extra = f" | quota_limit={limits[:2]}" if limits else ""
+        return f"HTTP {r.status_code} ({detail[:60]}){extra}"
+    except Exception as exc:
+        return f"fails ({str(exc)[:80]})"
 
 
 def _quick_image_test(client, model: str) -> str:
