@@ -188,9 +188,9 @@ jobs:
           CAPTION_FONT_SIZE_PCT: ${{ vars.CAPTION_FONT_SIZE_PCT || '' }}
           TITLE_CARD_FONT_SIZE_PCT: ${{ vars.TITLE_CARD_FONT_SIZE_PCT || '' }}
           RENDER_SAFE_ZONE_GUIDES: ${{ inputs.safe_zone_guides == 'on' && 'on' || 'off' }}
-          # ---- thumbnails (step 2.6, fully Gemini-generated artwork) ----
-          # THUMBNAIL_VARIANT: hook = yellow hook headline poster (default),
-          #   midpoint = strongest mid-beat scene + short text, clean = no text
+          # ---- thumbnails (step 2.6) ----
+          # THUMBNAIL_VARIANT: hook = mid-hook frame + hook text (default),
+          #   midpoint = strong mid-video beat + short text, clean = best frame
           # AUTO_UPLOAD_THUMBNAIL=false -> variants are generated and saved as
           #   an artifact for review, but NOT attached at upload time.
           THUMBNAIL_VARIANT: ${{ inputs.thumbnail_variant || 'hook' }}
@@ -233,8 +233,8 @@ jobs:
       # is skipped gracefully otherwise, so the job never fails on setup).
       #   YouTube: YT_CLIENT_ID / YT_CLIENT_SECRET / YT_REFRESH_TOKEN
       #            (one-time: python tools/yt_refresh_token.py)
-      #   Instagram: IG_SESSION_JSON (best, made once at home with
-      #   tools/ig_make_session.py), or IG_SESSIONID, or username+password
+      #   Instagram: IG_SESSION_JSON (best) or IG_SESSIONID, or
+      #            IG_USERNAME + IG_PASSWORD as the last resort
       # ---------------------------------------------------------------------
       - name: Publish to YouTube Shorts + Instagram Reels
         if: inputs.model_probe != 'on'

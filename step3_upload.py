@@ -44,9 +44,11 @@ Usage
     python step3_upload.py --skip-youtube   # Instagram only
 
 Thumbnail (from step_thumbnail.py's manifest, auto-attached)
-    YouTube : 1280x720 JPG via thumbnails.set right after the upload.
-              A 403 here almost always means the channel is not enabled for
-              custom thumbnails yet - the log prints exactly what to do.
+    YouTube : 1080x1920 JPG (Shorts-native 9:16) via thumbnails.set right
+              after the upload. A 403 here almost always means the channel
+              is not enabled for custom thumbnails yet - the log prints
+              exactly what to do. (The legacy 1280x720 render is still
+              generated as thumbnails/<variant>_youtube_wide.jpg.)
     Instagram: 1080x1920 cover via clip_upload(thumbnail=...).
     AUTO_UPLOAD_THUMBNAIL=false (or --no-thumbnail) skips attaching, so
     variants can be reviewed in output/<run>/thumbnails/ first.
@@ -427,12 +429,81 @@ def set_youtube_thumbnail(service, video_id: str, thumb_path: Path,
 # Instagram Reels upload (instagrapi - session id preferred, password fallback)
 # ---------------------------------------------------------------------------
 
+# One FIXED device fingerprint: every run presents the exact same "phone" to
+# Instagram. A brand-new random device each day (instagrapi's default) from a
+# datacenter IP is a strong automation red flag - determinism is safer.
+_IG_DEVICE = {
+    "app_version": "269.0.0.18.75",
+    "android_version": 30,
+    "android_release": "11",
+    "dpi": "480dpi",
+    "device": "Pixel 4",
+    "model": "Pixel 4",
+    "cpu": "qcom",
+    "version_code": "410532554",
+    "manufacturer": "Google",
+    "device_manufacturer": "Google",
+}
+
+
+def _ig_uuid(name: str) -> str:
+    """Stable UUID derived from a fixed seed (same device ids every run)."""
+    import uuid
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, f"innerlogic-ig:{name}"))
+
+
+def _ig_explain(exc: Exception) -> str:
+    """Translate Instagram private-API errors into actionable English."""
+    text = str(exc)
+    low = text.lower()
+    if ("challenge_required" in low or "challengeerror" in low
+            or "checkpoint" in low):
+        return ("Instagram requires a login challenge (checkpoint) - the "
+                "GitHub runner's datacenter IP is flagged. Open Instagram in "
+                "your browser, approve any 'Was this you?' prompt, then "
+                "create a FRESH session cookie and update the IG_SESSIONID "
+                "secret. Details: " + text[:150])
+    if ("467" in text or "login_required" in low or "not logged in" in low
+            or "please wait" in low and "login" in low):
+        return ("Instagram rejected the session (467 / login required) - "
+                "datacenter IPs are heavily restricted by Instagram. Make a "
+                "fresh IG_SESSIONID cookie (browser > DevTools > Application "
+                "> Cookies > instagram.com > sessionid) and update the "
+                "secret; if challenges persist, the session must be minted "
+                "from a residential IP. Details: " + text[:150])
+    if "pleasewait" in low or "rate limit" in low or "429" in text:
+        return ("Instagram rate limit hit - wait ~30-60 minutes and retry. "
+                "Details: " + text[:150])
+    return text[:200]
+
+
 def upload_instagram(video_path: Path, caption: str,
                      cover_path: Path | None = None) -> str:
+    from urllib.parse import unquote
     from instagrapi import Client
 
     client = Client()
-    client.delay_range = [1, 3]
+    client.delay_range = [2, 6]          # human-ish pauses between calls
+    client.request_timeout = 90          # reels uploads can be slow
+
+    # deterministic device + ids so Instagram sees the same phone every run
+    try:
+        client.set_device(dict(_IG_DEVICE))
+        client.set_locale("en_US")
+        client.set_country("US")
+        client.set_timezone_offset(0)
+        client.set_uuids({
+            "phone_id": _ig_uuid("phone"),
+            "uuid": _ig_uuid("device"),
+            "client_session_id": _ig_uuid("session"),
+            "advertising_id": _ig_uuid("ads"),
+            "device_id": _ig_uuid("device"),
+        })
+        client.set_user_agent(
+            "Instagram 269.0.0.18.75 Android (30/11; 480dpi; 440x2400; "
+            "Google; Pixel 4; Pixel 4; qcom; en_US; 410532554)")
+    except Exception:
+        pass                            # cosmetic - never block on pinning
 
     if IG_SESSION_FILE.is_file():
         try:
@@ -441,46 +512,52 @@ def upload_instagram(video_path: Path, caption: str,
         except Exception:
             pass
 
+    # accept both the raw cookie value and a URL-encoded paste (%3A -> :)
+    session_id = unquote(os.getenv("IG_SESSIONID", "").strip())
     session_json = os.getenv("IG_SESSION_JSON", "").strip()
-    session_id = os.getenv("IG_SESSIONID", "").strip()
     username = os.getenv("IG_USERNAME", "").strip()
     password = os.getenv("IG_PASSWORD", "").strip()
 
     if session_json:
+        # full session blob minted at home with tools/ig_make_session.py -
+        # carries the trusted device fingerprint, the most 467-proof option
         import json as _json
         print("      logging in with IG_SESSION_JSON (home-created session "
-              "- recommended)")
+              "- most stable)")
         try:
-            client.load_settings(_json.loads(session_json))
+            client.set_settings(_json.loads(session_json))
         except Exception as exc:
             raise RuntimeError(
                 "IG_SESSION_JSON is unreadable/corrupted "
                 f"({str(exc)[:80]}) - regenerate it on YOUR computer with "
-                "tools/ig_make_session.py and update the secret")
+                "tools/ig_make_session.py and update the secret") from exc
         print("      session settings loaded")
     elif session_id:
         print("      logging in with IG_SESSIONID (recommended method)")
-        client.login_by_sessionid(session_id)
+        try:
+            client.login_by_sessionid(session_id)
+        except Exception as exc:
+            raise RuntimeError(
+                "IG_SESSIONID login failed - "
+                f"{_ig_explain(exc)}") from exc
     elif username and password:
         print("      logging in with IG_USERNAME + IG_PASSWORD")
         try:
             client.login(username, password)
         except Exception as exc:
             raise RuntimeError(
-                "Instagram password login failed (cloud IPs trigger a "
-                "verification challenge - error 467). Free fix: run "
-                "tools/ig_make_session.py ONCE on your own computer and "
-                "paste the printed JSON into the IG_SESSION_JSON secret "
-                f"({str(exc)[:80]})")
+                "Instagram password login failed (cloud IPs often trigger a "
+                "verification challenge). Create a session cookie in your "
+                "browser and add it as the IG_SESSIONID secret instead. "
+                f"{_ig_explain(exc)}") from exc
     else:
         raise RuntimeError("no Instagram credentials found")
 
     try:
         client.get_timeline_feed()        # cheap request: validates the session
     except Exception as exc:
-        raise RuntimeError(f"Instagram session invalid ({str(exc)[:80]}) - "
-                           "regenerate with tools/ig_make_session.py and "
-                           "update the IG_SESSION_JSON secret")
+        raise RuntimeError("Instagram session invalid - "
+                           f"{_ig_explain(exc)}") from exc
 
     print(f"      uploading reel ({video_path.stat().st_size / (1024*1024):.1f} MB) ...")
     if cover_path is not None:
@@ -493,6 +570,9 @@ def upload_instagram(video_path: Path, caption: str,
         print("      WARNING: installed instagrapi cannot set a cover image "
               "(no 'thumbnail' param) - uploading without it")
         media = client.clip_upload(str(video_path), caption=caption)
+    except Exception as exc:
+        raise RuntimeError(f"Instagram upload failed - "
+                           f"{_ig_explain(exc)}") from exc
     try:                                   # cache the session for re-runs
         IG_SESSION_FILE.parent.mkdir(parents=True, exist_ok=True)
         client.dump_settings(str(IG_SESSION_FILE))

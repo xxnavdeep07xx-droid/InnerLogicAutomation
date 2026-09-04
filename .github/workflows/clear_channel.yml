@@ -1,0 +1,60 @@
+# ============================================================================
+#  Clear Channel - delete every video on the InnerLogic YouTube channel
+#
+#  One-off maintenance job (workflow_dispatch only - NO schedule):
+#    1. Run with confirm = ""        -> DRY RUN, lists every video
+#    2. Run with confirm = "DELETE"  -> IRREVERSIBLY deletes all of them
+#
+#  Uses the same YT_CLIENT_ID / YT_CLIENT_SECRET / YT_REFRESH_TOKEN secrets
+#  as the daily uploader. Deletion is permanent - YouTube has no trash can.
+#
+#  Manual trigger: Actions tab > "Clear Channel" > Run workflow.
+# ============================================================================
+
+name: Clear Channel
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type DELETE (all caps) to actually delete. Anything else = dry-run list only.'
+        type: string
+        default: ""
+      limit:
+        description: 'Max videos to delete this run (0 = all of them)'
+        type: string
+        default: "0"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: clear-channel
+  cancel-in-progress: false
+
+jobs:
+  clear:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install google-api-python-client google-auth python-dotenv
+
+      - name: List (and maybe delete) every channel video
+        env:
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+          CONFIRM_DELETE: ${{ inputs.confirm }}
+        run: python -u tools/clear_channel.py --limit ${{ inputs.limit || '0' }}

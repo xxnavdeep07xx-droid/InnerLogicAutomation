@@ -213,27 +213,29 @@ The daily run refreshes the token automatically. Optional Variable
 
 Add these **Secrets**:
 
-| Secret             | Value                                                        |
-|--------------------|--------------------------------------------------------------|
-| `IG_SESSION_JSON`  | **Best** - full session made once at home (see below)         |
-| `IG_USERNAME`      | Instagram username (fallback)                                |
-| `IG_PASSWORD`      | Instagram password (fallback)                                |
+| Secret           | Value                                                    |
+|------------------|----------------------------------------------------------|
+| `IG_USERNAME`    | Instagram username                                       |
+| `IG_PASSWORD`    | Instagram password                                       |
+| `IG_SESSIONID`   | **Recommended** — browser session cookie, see below      |
+| `IG_SESSION_JSON`| Optional — full session from `tools/ig_make_session.py`  |
 
-**Why a home-made session:** Instagram aggressively challenges logins from
-datacenter IPs (GitHub's runners get error **467**). A password login from
-CI will fail. The fix is free: create the session ONCE on your own computer
-(your home IP is trusted), then CI reuses it forever:
+**Why a session secret is needed:** Instagram aggressively challenges
+logins from datacenter IPs (GitHub's runners). A password login can trigger
+a verification code the bot can't answer. A session bypasses that:
 
-```bash
-pip install instagrapi
-python tools/ig_make_session.py        # enter username + password once
-# copy the printed JSON into the IG_SESSION_JSON secret
-```
+1. Log into instagram.com in your browser
+2. DevTools (F12) → **Application → Cookies → instagram.com → `sessionid`**
+3. Copy the value into the `IG_SESSIONID` secret (raw or URL-encoded)
 
-(Alternatively grab the browser `sessionid` cookie into the `IG_SESSIONID`
-secret, or paste username/password - but those two are the ones that hit
-verification challenges.) Use a **dedicated creator account** for automation.
-`step3_upload.py` prefers `IG_SESSION_JSON` → `IG_SESSIONID` → password.
+The most stable option is `IG_SESSION_JSON`: run
+`python tools/ig_make_session.py` ONCE on your own computer (trusted home
+IP) and paste the printed JSON into that secret — it carries the trusted
+device fingerprint, so CI reuses a session Instagram has already accepted.
+
+Use a **dedicated creator account** for automation — automated posting can
+theoretically risk account flags. `step3_upload.py` prefers
+`IG_SESSION_JSON`, then `IG_SESSIONID`, then username/password.
 
 ---
 
@@ -249,19 +251,6 @@ verification challenges.) Use a **dedicated creator account** for automation.
 - Artifacts are kept for **14 days**.
 - Publishing without secrets? The publish step prints `SKIPPED` and the run
   still succeeds — add secrets whenever you're ready.
-
-### Clearing the channel (purge)
-
-**Actions → “Purge Channel” → Run workflow**, type `PURGE` in the confirm
-box. It lists every video on the uploads playlist and deletes each one
-(audited in the log; optionally keep specific IDs via the `keep` input).
-This is **permanent** - API deletes bypass the trash.
-
-> The purge needs a refresh token with the `youtube.force-ssl` scope
-> (delete is more than upload). The current upload-only token will be
-> refused on the first delete with exact instructions: re-run
-> `python tools/yt_refresh_token.py` (it now requests upload + force-ssl)
-> and update the `YT_REFRESH_TOKEN` secret - a one-time 2-minute fix.
 
 > GitHub disables scheduled workflows after 60 days without repo activity.
 > Any commit (or a manual re-enable in the Actions tab) keeps it alive.
@@ -296,47 +285,90 @@ short clips are looped.
 
 ---
 
-## Automatic thumbnails (step 2.6)
+## Automatic thumbnails (step 2.6) — 100% free
 
-Every run generates **three creative AI-painted thumbnail variants** from the
-same script data (no extra script-generation call) and auto-attaches one at
-upload time. **Cost: $0** - the artwork comes from the free Pollinations.ai
-Flux endpoint (no API key, no account, no billing), and the headline is
-typeset locally in the channel's Anton font:
+Every run generates **three thumbnail variants** as creative AI illustrations
+and auto-attaches one at upload time. **Cost: $0** — images come from the
+public [Pollinations.ai](https://pollinations.ai) Flux endpoint (no API key,
+no account) and the headline is typeset **locally** in the bundled Anton font,
+so spelling is always correct and stays readable at mobile-feed sizes.
 
 | variant | artwork | text |
 |---|---|---|
-| `hook` (default) | AI scene matching beat[0]'s concept + emotion | the hook text, shortened to 3-6 punchy ALL-CAPS words (quick Gemini text call when longer than 6 words; local emphasis heuristic offline) |
-| `midpoint` | AI scene from the strongest mid-video emotional beat | that beat's text, shortened the same way |
-| `clean` | pure atmospheric AI artwork | none |
+| `hook` (default) | illustration of the hook beat's `visual_concept` | the hook text, auto-shortened to a 3-6 word punchy ALL-CAPS caption with one quick Gemini *text* call when it is longer than 6 words |
+| `midpoint` | illustration of the strongest mid-video emotional beat | that beat's text, shortened the same way |
+| `clean` | atmospheric illustration | none |
 
 Design details:
 
-- **No video frames.** Every thumbnail is freshly painted artwork. The model
-  renders the scene TEXT-FREE (with clean negative space up top), then the
-  caption is typeset deterministically: Anton ALL CAPS, yellow `#F5D90A`
-  (hook) or white (midpoint), black stroke + drop shadow + soft scrim,
-  auto-fit to <=3 lines and <=84% width - perfect spelling and legibility
-  at phone-feed size, no AI-text guessing.
-- **Two sizes per variant, cropped not stretched:** `1280x720` (YouTube
-  spec, JPG under 2 MB) and `1080x1920` (Instagram Reels cover), each
-  generated in its own native aspect ratio.
-- **Providers (`THUMB_IMAGE_PROVIDER`):** `auto` (default) = Pollinations
-  flux -> local brand-artwork fallback (the pipeline never breaks);
-  `pollinations` / `gemini` (paid, if billing is ever enabled) / `local`.
+- **Deterministic:** the image seed is a hash of `run:variant:size`, so the
+  same run always produces the same artwork. Flux ignores exact pixel
+  requests (it returns 1024x576 / 576x1024), so every image is cover-cropped
+  + LANCZOS-resized to the exact spec.
+- **Shorts-first sizes:** each variant's vertical render is made once at
+  `1080x1920` and split into the YouTube Shorts upload JPG (<2MB re-encode
+  loop) and the Instagram Reels cover PNG — one AI image, two encodes. A
+  legacy `1280x720` JPG (`<variant>_youtube_wide.jpg`) is kept for 16:9
+  embed surfaces. The headline is re-laid-out per orientation — Anton,
+  ALL CAPS yellow #F5D90A with black stroke + drop shadow, centered
+  upper-middle inside the Shorts-safe band (clear of the feed's bottom
+  title/audio overlay and the top icons).
+- **Never empty-handed:** provider chain `THUMB_IMAGE_PROVIDER=auto` (default)
+  = Pollinations first; if the endpoint is slow/down, an offline poster
+  (navy-violet gradient + emotion-tinted rim glow + film grain) is generated
+  instantly. A global time budget (`THUMB_POLLINATIONS_BUDGET`, default 420s)
+  caps the whole step so the daily run is never delayed.
 - **Review folder:** `output/<run_id>/thumbnails/` holds all variants plus
-  `thumbnail_manifest.json` (per-variant model + caption provenance) and
+  `thumbnail_manifest.json` (variant, seed, model, prompt context, text) and
   tiny `preview_mobile_*` images. CI uploads them as the
   `thumbnails_<run_number>` artifact.
-- **Upload wiring:** YouTube gets the 1280x720 via `thumbnails.set` right
-  after upload (channel must be phone-verified - one-time fix at
-  youtube.com/verify). Instagram gets the 1080x1920 cover via
-  `clip_upload(thumbnail=...)`.
+- **Upload wiring:** YouTube gets the Shorts-native 1080x1920 JPG via
+  `thumbnails.set` right after upload (Shorts surfaces are 9:16 — a 16:9
+  image would be center-cropped and lose ~68% of its width). If YouTube
+  answers 403 the log prints a loud, step-by-step warning - that means the
+  channel is not phone-verified for custom thumbnails yet (one-time fix at
+  youtube.com/verify, then Studio > Settings > Channel > Feature
+  eligibility). The video itself is still live. Instagram gets the
+  1080x1920 cover via `clip_upload(thumbnail=...)`.
 - **Per-video config:** `thumbnail_variant` (hook | midpoint | clean) and
   `auto_upload_thumbnail` (true | false - generate + save for review but do
   not attach) are on the workflow-dispatch form and in `.env.example`. To use
   a different variant after review, run step 3 again with
-  `--thumbnail path/to/file.jpg`.
+  `--thumbnail path/to/file.jpg`. Inspect providers any time with
+  `python step_thumbnail.py --list-models` (no API key needed).
+
+---
+
+## Clearing the channel (maintenance)
+
+**Actions → Clear Channel → Run workflow.** A one-off maintenance job that
+lists every video on the channel and can delete them all:
+
+1. Run it with **confirm left empty** → DRY RUN: prints every video
+   (id, date, views, title), deletes nothing.
+2. Run it again with **confirm = `DELETE`** → permanently deletes every
+   video, one by one (`limit` input caps how many per run, 0 = all).
+
+Deletion is **irreversible** (YouTube has no trash can). Uses the same
+`YT_*` secrets as the daily uploader — nothing is stored in the repo.
+The next scheduled run starts the channel fresh.
+
+---
+
+## Instagram reliability notes
+
+The workflow posts Reels via `IG_SESSION_JSON` / `IG_SESSIONID` using
+instagrapi with a **deterministic device fingerprint** (same Pixel 4
+identity, locale and UUIDs every run — far less suspicious to Instagram
+than a new device daily). Both raw and URL-encoded (`%3A`) session cookies
+are accepted, and an `IG_SESSION_JSON` blob minted at home with
+`tools/ig_make_session.py` is preferred when present.
+
+Instagram heavily restricts **datacenter IPs** (GitHub runners). If a run
+fails with a challenge/467 error, the log prints exact remediation steps:
+approve any "Was this you?" prompt in the app, mint a fresh `sessionid`
+cookie, update the secret. A failed IG upload never blocks the YouTube
+upload — each platform reports independently in the run summary.
 
 ---
 
