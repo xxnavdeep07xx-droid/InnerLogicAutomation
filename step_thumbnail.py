@@ -528,7 +528,17 @@ def _quick_image_test(client, model: str) -> str:
             return f"WORKS ({len(got[0]) // 1024} KB image)"
         return "no image part in response"
     except Exception as exc:
-        return f"fails ({str(exc)[:90]})"
+        detail = str(exc)
+        # surface the quota verdict: metric name + limit value, e.g.
+        # "...free_tier_requests, limit: 0, model: gemini-..."
+        limits = re.findall(r"(\S*quota\S*|free_tier_\w+)[^;]*?limit: (\d+)",
+                            detail) or \
+            re.findall(r"limit: (\d+)", detail)
+        retry = re.search(r"retry in ([\d.]+)\w*", detail)
+        extra = f" | quota={limits[:3]}" if limits else ""
+        if retry:
+            extra += f" | retry_in={retry.group(1)}"
+        return f"fails ({detail[:70]}){extra}"
 
 
 def verify_text(image_bytes: bytes, mime: str, expected: str,
