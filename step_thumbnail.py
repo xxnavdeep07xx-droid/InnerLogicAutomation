@@ -387,11 +387,13 @@ def build_prompt(variant: str, caption: str, ctx: dict, wide: bool) -> str:
             f"{bottom_note}"
         )
     # clean - no text at all
+    hook_concept = ctx.get("hook_concept", "") or ""
+    concept_note = f" - {hook_concept}" if hook_concept else ""
     return (
         f"You are designing a wordless cinematic YouTube thumbnail that "
         f"intrigues in one glance. {title_ctx}{aspect}. {STYLE_BASE} "
         f"Depict the single most emotionally striking image suggested by the "
-        f'video theme{f": {ctx['hook_concept']}" if ctx["hook_concept"] else ""}. '
+        f"video theme{concept_note}. "
         f"Mood: {_mood(ctx.get('hook_emotion', ''))}. "
         "ABSOLUTELY NO TEXT of any kind - no words, letters, numbers, signs "
         "or typography anywhere. One strong focal subject, generous negative "
