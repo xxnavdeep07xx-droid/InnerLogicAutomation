@@ -100,6 +100,21 @@ VERIFY_MODELS = list(dict.fromkeys(
 _discovered_images: list[str] = []          # populated once per process
 
 
+def _supports_generate_content(m) -> bool:
+    """SDK 2.x: supported_actions is Optional[list[str]] (plain strings).
+
+    Some key types return None/empty here - assume usable and let the call
+    itself be the verdict."""
+    actions = getattr(m, "supported_actions", None) or []
+    if not actions:
+        return True
+    for a in actions:
+        text = a if isinstance(a, str) else (getattr(a, "name", "") or "")
+        if ":generateContent" in text or text == "generateContent":
+            return True
+    return False
+
+
 def discover_image_models(api_key: str) -> list[str]:
     """Live-discover generateContent-capable image models for THIS key.
 
@@ -114,11 +129,9 @@ def discover_image_models(api_key: str) -> list[str]:
         found: list[str] = []
         for m in client.models.list():
             name = (getattr(m, "name", "") or "").replace("models/", "")
-            if "image" not in name or "embedding" in name:
+            if "image" not in name or "embedding" in name or name.startswith("imagen"):
                 continue
-            actions = [getattr(a, "name", "") for a in
-                       (getattr(m, "supported_actions", None) or [])]
-            if not any(":generateContent" in a for a in actions):
+            if not _supports_generate_content(m):
                 continue
             # flash tier first (free-tier friendly + fast), then the rest
             score = 0
@@ -466,24 +479,55 @@ def gemini_image(prompt: str, aspect: str, api_key: str) -> tuple[bytes, str, st
 
 
 def list_models(api_key: str) -> None:
-    """CI probe: print which image + text models THIS key can actually use."""
+    """CI probe: what can THIS key actually use right now?
+
+    1. raw models.list count + image/text breakdown
+    2. a REAL tiny image generation per candidate model (ground truth,
+       because models.list is unreliable for some key types)
+    """
+    from google.genai import types
     client = _client(api_key)
-    images, texts = [], []
-    for m in client.models.list():
-        name = (getattr(m, "name", "") or "").replace("models/", "")
-        actions = [getattr(a, "name", "") for a in
-                   (getattr(m, "supported_actions", None) or [])]
-        if not any(":generateContent" in a for a in actions):
-            continue
-        (images if "image" in name else texts).append(name)
+    raw, images, texts = [], [], []
+    try:
+        for m in client.models.list():
+            name = (getattr(m, "name", "") or "").replace("models/", "")
+            raw.append(name)
+            if not _supports_generate_content(m):
+                continue
+            (images if "image" in name else texts).append(name)
+    except Exception as exc:
+        print(f"  models.list failed: {str(exc)[:200]}")
     print("=" * 60)
-    print(f"  IMAGE models ({len(images)}):")
-    for n in images:
-        print(f"    {n}")
-    print(f"  TEXT models ({len(texts)}) [first 15]:")
-    for n in texts[:15]:
-        print(f"    {n}")
+    print(f"  models.list returned {len(raw)} models; "
+          f"image-capable: {len(images)}, text: {len(texts)}")
+    for n in images[:10]:
+        print(f"    [img ] {n}")
+    for n in texts[:10]:
+        print(f"    [text] {n}")
+
+    print("  --- live generation test per candidate image model ---")
+    candidates = list(dict.fromkeys(
+        ([_IMAGE_ENV] if _IMAGE_ENV else []) + _IMAGE_FALLBACKS + images))
+    for model in candidates:
+        verdict = _quick_image_test(client, model)
+        print(f"    {model:38s} -> {verdict}")
     print("=" * 60)
+
+
+def _quick_image_test(client, model: str) -> str:
+    """One tiny real generation - the only 100% reliable capability check."""
+    try:
+        resp = client.models.generate_content(
+            model=model,
+            contents=["A tiny plain blue circle on a plain white background."],
+            config=types.GenerateContentConfig(
+                response_modalities=["TEXT", "IMAGE"]))
+        got = _extract_image(resp)
+        if got:
+            return f"WORKS ({len(got[0]) // 1024} KB image)"
+        return "no image part in response"
+    except Exception as exc:
+        return f"fails ({str(exc)[:90]})"
 
 
 def verify_text(image_bytes: bytes, mime: str, expected: str,
