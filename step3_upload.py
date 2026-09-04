@@ -441,11 +441,24 @@ def upload_instagram(video_path: Path, caption: str,
         except Exception:
             pass
 
+    session_json = os.getenv("IG_SESSION_JSON", "").strip()
     session_id = os.getenv("IG_SESSIONID", "").strip()
     username = os.getenv("IG_USERNAME", "").strip()
     password = os.getenv("IG_PASSWORD", "").strip()
 
-    if session_id:
+    if session_json:
+        import json as _json
+        print("      logging in with IG_SESSION_JSON (home-created session "
+              "- recommended)")
+        try:
+            client.load_settings(_json.loads(session_json))
+        except Exception as exc:
+            raise RuntimeError(
+                "IG_SESSION_JSON is unreadable/corrupted "
+                f"({str(exc)[:80]}) - regenerate it on YOUR computer with "
+                "tools/ig_make_session.py and update the secret")
+        print("      session settings loaded")
+    elif session_id:
         print("      logging in with IG_SESSIONID (recommended method)")
         client.login_by_sessionid(session_id)
     elif username and password:
@@ -454,9 +467,10 @@ def upload_instagram(video_path: Path, caption: str,
             client.login(username, password)
         except Exception as exc:
             raise RuntimeError(
-                "Instagram password login failed (cloud IPs often trigger a "
-                "verification challenge). Create a session cookie in your "
-                "browser and add it as the IG_SESSIONID secret instead "
+                "Instagram password login failed (cloud IPs trigger a "
+                "verification challenge - error 467). Free fix: run "
+                "tools/ig_make_session.py ONCE on your own computer and "
+                "paste the printed JSON into the IG_SESSION_JSON secret "
                 f"({str(exc)[:80]})")
     else:
         raise RuntimeError("no Instagram credentials found")
@@ -465,7 +479,8 @@ def upload_instagram(video_path: Path, caption: str,
         client.get_timeline_feed()        # cheap request: validates the session
     except Exception as exc:
         raise RuntimeError(f"Instagram session invalid ({str(exc)[:80]}) - "
-                           "refresh IG_SESSIONID or credentials")
+                           "regenerate with tools/ig_make_session.py and "
+                           "update the IG_SESSION_JSON secret")
 
     print(f"      uploading reel ({video_path.stat().st_size / (1024*1024):.1f} MB) ...")
     if cover_path is not None:

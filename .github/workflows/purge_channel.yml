@@ -1,0 +1,56 @@
+# ============================================================================
+#  Purge channel - delete ALL videos on the YouTube channel (DESTRUCTIVE)
+#
+#  Manual-only workflow: Actions > "Purge Channel" > Run workflow.
+#  Type PURGE in the confirm box to unlock the deletion step.
+#
+#  Requires YT_CLIENT_ID / YT_CLIENT_SECRET / YT_REFRESH_TOKEN secrets.
+#  NOTE: videos.delete needs the youtube.force-ssl OAuth scope. If the saved
+#  refresh token was generated with upload-only scope, the purge stops on the
+#  first 403 and tells you to regenerate the token with the updated
+#  tools/yt_refresh_token.py (it now requests upload + force-ssl).
+#
+#  YouTube API quota: each delete costs 50 units of the 10,000/day free
+#  budget, so even a few hundred videos purge in one run.
+# ============================================================================
+
+name: Purge Channel
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type PURGE to confirm deleting ALL videos (no undo)'
+        type: string
+        required: true
+        default: ''
+      keep:
+        description: 'Comma-separated video IDs to KEEP (optional)'
+        type: string
+        required: false
+        default: ''
+
+jobs:
+  purge:
+    if: ${{ github.event.inputs.confirm == 'PURGE' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install API client
+        run: |
+          python -m pip install --upgrade pip
+          pip install 'google-api-python-client>=2.100.0' 'google-auth>=2.23.0'
+
+      - name: Purge all channel videos
+        env:
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+        run: |
+          python -u tools/yt_purge.py --yes --keep "${{ github.event.inputs.keep }}"

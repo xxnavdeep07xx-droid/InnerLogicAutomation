@@ -213,23 +213,27 @@ The daily run refreshes the token automatically. Optional Variable
 
 Add these **Secrets**:
 
-| Secret        | Value                                                       |
-|---------------|-------------------------------------------------------------|
-| `IG_USERNAME` | Instagram username                                          |
-| `IG_PASSWORD` | Instagram password                                          |
-| `IG_SESSIONID`| **Recommended instead of the two above** — see below        |
+| Secret             | Value                                                        |
+|--------------------|--------------------------------------------------------------|
+| `IG_SESSION_JSON`  | **Best** - full session made once at home (see below)         |
+| `IG_USERNAME`      | Instagram username (fallback)                                |
+| `IG_PASSWORD`      | Instagram password (fallback)                                |
 
-**Why `IG_SESSIONID` is recommended:** Instagram aggressively challenges
-logins from datacenter IPs (GitHub's runners). A password login can trigger
-a verification code the bot can't answer. A session cookie bypasses that:
+**Why a home-made session:** Instagram aggressively challenges logins from
+datacenter IPs (GitHub's runners get error **467**). A password login from
+CI will fail. The fix is free: create the session ONCE on your own computer
+(your home IP is trusted), then CI reuses it forever:
 
-1. Log into instagram.com in your browser
-2. DevTools (F12) → **Application → Cookies → instagram.com → `sessionid`**
-3. Copy the value into the `IG_SESSIONID` secret
+```bash
+pip install instagrapi
+python tools/ig_make_session.py        # enter username + password once
+# copy the printed JSON into the IG_SESSION_JSON secret
+```
 
-Use a **dedicated creator account** for automation — automated posting can
-theoretically risk account flags. `step3_upload.py` prefers `IG_SESSIONID`
-when present and falls back to username/password.
+(Alternatively grab the browser `sessionid` cookie into the `IG_SESSIONID`
+secret, or paste username/password - but those two are the ones that hit
+verification challenges.) Use a **dedicated creator account** for automation.
+`step3_upload.py` prefers `IG_SESSION_JSON` → `IG_SESSIONID` → password.
 
 ---
 
@@ -245,6 +249,19 @@ when present and falls back to username/password.
 - Artifacts are kept for **14 days**.
 - Publishing without secrets? The publish step prints `SKIPPED` and the run
   still succeeds — add secrets whenever you're ready.
+
+### Clearing the channel (purge)
+
+**Actions → “Purge Channel” → Run workflow**, type `PURGE` in the confirm
+box. It lists every video on the uploads playlist and deletes each one
+(audited in the log; optionally keep specific IDs via the `keep` input).
+This is **permanent** - API deletes bypass the trash.
+
+> The purge needs a refresh token with the `youtube.force-ssl` scope
+> (delete is more than upload). The current upload-only token will be
+> refused on the first delete with exact instructions: re-run
+> `python tools/yt_refresh_token.py` (it now requests upload + force-ssl)
+> and update the `YT_REFRESH_TOKEN` secret - a one-time 2-minute fix.
 
 > GitHub disables scheduled workflows after 60 days without repo activity.
 > Any commit (or a manual re-enable in the Actions tab) keeps it alive.
@@ -281,36 +298,40 @@ short clips are looped.
 
 ## Automatic thumbnails (step 2.6)
 
-Every run now generates **three thumbnail variants** from the same script data
-(no extra script-generation call) and auto-attaches one at upload time:
+Every run generates **three creative AI-painted thumbnail variants** from the
+same script data (no extra script-generation call) and auto-attaches one at
+upload time. **Cost: $0** - the artwork comes from the free Pollinations.ai
+Flux endpoint (no API key, no account, no billing), and the headline is
+typeset locally in the channel's Anton font:
 
-| variant | frame | text |
+| variant | artwork | text |
 |---|---|---|
-| `hook` (default) | mid-hook frame (middle of beat[0]'s duration) | the hook text, auto-shortened to a 3-6 word punchy ALL-CAPS caption with one quick Gemini call when it is longer than 6 words |
-| `midpoint` | the strongest mid-video emotional beat (most emphasis words) | that beat's text, shortened the same way |
-| `clean` | the highest-contrast frame of the whole video | none |
+| `hook` (default) | AI scene matching beat[0]'s concept + emotion | the hook text, shortened to 3-6 punchy ALL-CAPS words (quick Gemini text call when longer than 6 words; local emphasis heuristic offline) |
+| `midpoint` | AI scene from the strongest mid-video emotional beat | that beat's text, shortened the same way |
+| `clean` | pure atmospheric AI artwork | none |
 
 Design details:
 
-- **Frames are text-free.** Captions are burned into the final video, so frames
-  are pulled from step 2's composed background cache (`_background_dyn_*.mp4`,
-  same scenes/zooms, no text). Flat frames (low brightness std-dev) fall back
-  to the beat[1]/beat[2] frames; a dark bottom gradient + soft scrim appear
-  automatically when the frame contrast is low.
+- **No video frames.** Every thumbnail is freshly painted artwork. The model
+  renders the scene TEXT-FREE (with clean negative space up top), then the
+  caption is typeset deterministically: Anton ALL CAPS, yellow `#F5D90A`
+  (hook) or white (midpoint), black stroke + drop shadow + soft scrim,
+  auto-fit to <=3 lines and <=84% width - perfect spelling and legibility
+  at phone-feed size, no AI-text guessing.
 - **Two sizes per variant, cropped not stretched:** `1280x720` (YouTube
-  thumbnail spec, also uploaded as JPG) and `1080x1920` (Instagram Reels
-  cover). Text is re-laid-out per size - same Anton style as the title card,
-  larger, centered upper-middle so no platform cover UI covers it.
+  spec, JPG under 2 MB) and `1080x1920` (Instagram Reels cover), each
+  generated in its own native aspect ratio.
+- **Providers (`THUMB_IMAGE_PROVIDER`):** `auto` (default) = Pollinations
+  flux -> local brand-artwork fallback (the pipeline never breaks);
+  `pollinations` / `gemini` (paid, if billing is ever enabled) / `local`.
 - **Review folder:** `output/<run_id>/thumbnails/` holds all variants plus
-  `thumbnail_manifest.json` (which variant, which frame timestamp, which text)
-  and tiny `preview_mobile_*` images. CI uploads them as the
+  `thumbnail_manifest.json` (per-variant model + caption provenance) and
+  tiny `preview_mobile_*` images. CI uploads them as the
   `thumbnails_<run_number>` artifact.
 - **Upload wiring:** YouTube gets the 1280x720 via `thumbnails.set` right
-  after upload. If YouTube answers 403 the log prints a loud, step-by-step
-  warning - that means the channel is not phone-verified for custom thumbnails
-  yet (one-time fix at youtube.com/verify, then Studio > Settings > Channel >
-  Feature eligibility). The video itself is still live. Instagram gets the
-  1080x1920 cover via `clip_upload(thumbnail=...)`.
+  after upload (channel must be phone-verified - one-time fix at
+  youtube.com/verify). Instagram gets the 1080x1920 cover via
+  `clip_upload(thumbnail=...)`.
 - **Per-video config:** `thumbnail_variant` (hook | midpoint | clean) and
   `auto_upload_thumbnail` (true | false - generate + save for review but do
   not attach) are on the workflow-dispatch form and in `.env.example`. To use

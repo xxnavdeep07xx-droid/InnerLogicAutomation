@@ -1,12 +1,27 @@
 #!/usr/bin/env python3
 """
-step_thumbnail.py - fully Gemini-GENERATED thumbnails (v2, creative mode).
+step_thumbnail.py - creative AI-generated thumbnails, 100% FREE (v3).
 
-Every thumbnail is painted BY Gemini (gemini-2.5-flash-image, "nano banana"):
-no video frames are extracted and no text is drawn locally. Gemini creates
-the artwork AND renders the headline text itself, guided entirely by the
-beats JSON it already produced in step 1 (hook text, emotion, emphasis,
-visual concepts, title) - no extra script-generation call.
+Every thumbnail is painted by an AI image model - no video frames are
+extracted. v3 swaps the Gemini image endpoint (paid-only: the key's free
+tier allows ZERO image requests, proven by CI probes) for POLLINATIONS.AI,
+a public Flux endpoint that needs NO API key, NO account, NO billing:
+
+    https://image.pollinations.ai/prompt/<prompt>?width=..&height=..
+    (model=flux, free anonymous tier, ~5-15 s per image)
+
+Provider chain (THUMB_IMAGE_PROVIDER, default "auto"):
+    auto          Pollinations flux; local brand artwork if it fails
+    pollinations  Pollinations only (errors are not swallowed)
+    gemini        the old paid Gemini path (if billing is ever enabled)
+    local         always local brand artwork
+
+Headline text on the free path: artwork is generated TEXT-FREE, then the
+caption is typeset locally in the channel's Anton font (yellow #F5D90A or
+white, black stroke + drop shadow, soft scrim, auto-fit <=3 lines, 84%
+width cap) - deterministic spelling, guaranteed mobile-size legibility,
+no vision verification loop needed. The gemini provider still paints and
+verifies text itself as in v2.
 
 Variants (all saved for review, one becomes the upload default):
     hook      bold typographic poster - huge yellow all-caps hook line on a
@@ -18,12 +33,13 @@ Both resolutions are generated NATIVELY in their own aspect ratio - never a
 stretch of one master image:
     YouTube   1280x720  (16:9)  -> thumbnails.set right after videos().insert
     Instagram 1080x1920 (9:16)  -> clip_upload(thumbnail=...) cover frame
-(The raw Gemini output is center-cover cropped to the exact pixel size - a
-crop, never a distortion - and the YouTube JPG is squeezed under 2 MB.)
+(Pollinations generates at the exact requested size; a center-cover crop
+fixes any drift - a crop, never a distortion - and the YouTube JPG is
+squeezed under 2 MB.)
 
-Quality gate: every text-bearing image is read back by a cheap Gemini vision
-call ("transcribe the text"); if the headline is not spelled exactly, the
-image is regenerated once (max 1 retry per variant/aspect).
+Quality gate: on the free path spelling is deterministic (local typeset).
+On the gemini path every text-bearing image is read back by a cheap Gemini
+vision call and regenerated once on mismatch (v2 behaviour).
 
 Outputs (review folder: output/<run_id>/thumbnails/)
     <variant>_youtube.jpg / <variant>_instagram.png   (+ same for all variants)
@@ -36,9 +52,12 @@ Config (env or CLI, all optional)
     AUTO_UPLOAD_THUMBNAIL   true | false                 (default true; false
                             = generate + save for review, skip auto-attach)
     THUMB_VARIANTS          comma list to build (default "hook,midpoint,clean")
-    GEMINI_IMAGE_MODEL      image model (default gemini-2.5-flash-image)
+    THUMB_IMAGE_PROVIDER    auto | pollinations | gemini | local (default auto)
+    THUMB_IMAGE_MODEL       pollinations model (default flux, then turbo)
+    GEMINI_IMAGE_MODEL      image model for the gemini provider
     GEMINI_THUMB_MODEL      caption-shorten / vision-verify model
-                            (default gemini-2.5-flash-lite)
+
+COST: $0 - the default provider needs no key, no account and no quota.
 
 This step is best-effort by design: any failure prints a WARNING and exits 0
 (unless --strict) so a thumbnail problem can never block publishing.
@@ -47,6 +66,7 @@ This step is best-effort by design: any failure prints a WARNING and exits 0
 from __future__ import annotations
 
 import argparse
+import hashlib
 import io
 import json
 import os
@@ -54,6 +74,7 @@ import re
 import sys
 import time
 from datetime import datetime, timezone
+from urllib.parse import quote
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -81,6 +102,16 @@ IG_SIZE = (1080, 1920)         # Instagram Reels cover spec (9:16)
 DEFAULT_VARIANT = "hook"       # hook | midpoint | clean
 VARIANTS_ALL = ("hook", "midpoint", "clean")
 TRUNCATE_WORDS = 6             # caption longer than this -> shorten it
+
+# --- free image provider (v3): Pollinations.ai, no key, no billing --------
+POLLINATIONS_URL = "https://image.pollinations.ai/prompt/{prompt}"
+POLLINATIONS_MODELS = ["flux", "turbo"]
+PROVIDER = (os.getenv("THUMB_IMAGE_PROVIDER", "") or "auto").strip().lower()
+if PROVIDER not in ("auto", "pollinations", "gemini", "local"):
+    PROVIDER = "auto"
+POLLINATIONS_MODEL_ENV = (os.getenv("THUMB_IMAGE_MODEL", "") or "").strip()
+ACCENT_YELLOW = (245, 217, 10)          # #F5D90A - channel hook accent
+ACCENT_WHITE = (255, 255, 255)
 
 # Static fallbacks are only used when live model discovery fails (discovery
 # needs a geo-supported IP - CI has one, this matters because image-model
@@ -372,8 +403,13 @@ def _text_directive(caption: str, color: str, outline: str) -> str:
     )
 
 
-def build_prompt(variant: str, caption: str, ctx: dict, wide: bool) -> str:
-    """Creative brief for one variant in one aspect ratio."""
+def build_prompt(variant: str, caption: str, ctx: dict, wide: bool,
+                 paint_text: bool = True) -> str:
+    """Creative brief for one variant in one aspect ratio.
+
+    paint_text=True  (gemini provider) - the model paints the headline.
+    paint_text=False (free path) - strictly text-free artwork with clean
+    negative space up top; the caption is typeset locally afterwards."""
     aspect = ("horizontal 16:9 widescreen composition"
               if wide else "vertical 9:16 portrait composition")
     bottom_note = ("Keep the bottom quarter of the frame visually simple and "
@@ -384,11 +420,22 @@ def build_prompt(variant: str, caption: str, ctx: dict, wide: bool) -> str:
                    "drawn over it in some YouTube views.")
     title_ctx = (f'The video is about "{ctx["title"]}". '
                  if ctx["title"] else "")
+    text_free_note = (
+        "ABSOLUTELY NO TEXT of any kind - no words, letters, numbers, "
+        "signs or typography anywhere in the image. Keep the upper-middle "
+        "area of the composition darker and visually simple - a bold title "
+        "will be added there later - with the main subject in the lower "
+        "two-thirds of the frame. ")
 
     if variant == "hook":
         scene = (f'Concept to depict: {ctx["hook_concept"]}. '
                  if ctx["hook_concept"] else "")
         mood = _mood(ctx.get("hook_emotion", ""))
+        if not paint_text:
+            return (
+                f"You are designing a scroll-stopping YouTube thumbnail "
+                f"artwork. {title_ctx}{aspect}. {STYLE_BASE} {scene}"
+                f"Mood: {mood}. {text_free_note}{bottom_note}")
         return (
             f"You are designing a scroll-stopping YouTube thumbnail. "
             f"{title_ctx}{aspect}. {STYLE_BASE} {scene}Mood: {mood}. "
@@ -400,6 +447,11 @@ def build_prompt(variant: str, caption: str, ctx: dict, wide: bool) -> str:
         scene = (f'Concept to depict: {ctx["mid_concept"]}. '
                  if ctx["mid_concept"] else "")
         mood = _mood(ctx.get("mid_emotion", ""))
+        if not paint_text:
+            return (
+                f"You are designing a cinematic YouTube thumbnail artwork. "
+                f"{title_ctx}{aspect}. {STYLE_BASE} {scene}Mood: {mood}. "
+                f"{text_free_note}{bottom_note}")
         return (
             f"You are designing a cinematic YouTube thumbnail. "
             f"{title_ctx}{aspect}. {STYLE_BASE} {scene}Mood: {mood}. "
@@ -660,6 +712,197 @@ def verify_text(image_bytes: bytes, mime: str, expected: str,
 
 
 # ---------------------------------------------------------------------------
+# FREE image provider: Pollinations.ai (public Flux, no key, $0)
+# ---------------------------------------------------------------------------
+
+def seed_for(run_name: str, variant: str, tag: str) -> int:
+    """Deterministic per (run, variant, aspect) - re-runs reproduce artwork.
+
+    Masked to 31 bits: pollinations rejects seeds above the int32 max with
+    an opaque HTTP 500 (cost a debugging session to find)."""
+    digest = hashlib.sha256(f"{run_name}:{variant}:{tag}".encode()).hexdigest()
+    return int(digest[:8], 16) & 0x7FFFFFFF
+
+
+def pollinations_image(prompt: str, wide: bool,
+                       seed: int) -> tuple[bytes, str, str]:
+    """One image from the free Pollinations flux endpoint.
+
+    Returns (bytes, mime, model_used). Raises on total failure.
+    Anonymous tier: no key needed; occasional 429/500 under load ->
+    seed-jittered retries inside a per-image time budget. The service
+    honors the requested ASPECT but not exact pixels (flux returns
+    1024x576 / 576x1024) - the postprocess cover-crop + LANCZOS upscale
+    handles that, so any image with a >=500px short side is accepted."""
+    import requests as _rq
+    from PIL import Image as _PILImage
+    w, h = YT_SIZE if wide else IG_SIZE
+    models = [POLLINATIONS_MODEL_ENV] if POLLINATIONS_MODEL_ENV \
+        else list(POLLINATIONS_MODELS)
+    url_prompt = quote(prompt, safe="")
+    last = ""
+    for model in models:
+        # per-model budget with a guaranteed first attempt - a slow/500ing
+        # primary model must never eat the fallback model's shot entirely
+        model_deadline = time.time() + 150
+        attempt = 0
+        while True:
+            attempt += 1
+            if attempt > 1 and time.time() > model_deadline:
+                break
+            try:
+                url = (f"{POLLINATIONS_URL.format(prompt=url_prompt)}"
+                       f"?width={w}&height={h}&model={model}"
+                       f"&seed={seed + attempt * 9973}&nologo=true"
+                       f"&private=true")
+                r = _rq.get(url, timeout=90, headers={
+                    "User-Agent": "InnerLogic-Pipeline/1.0"})
+                ctype = r.headers.get("content-type", "")
+                if (r.status_code == 200 and ctype.startswith("image")
+                        and len(r.content) > 20_000):
+                    _PILImage.open(io.BytesIO(r.content)).verify()  # not HTML
+                    real = _PILImage.open(io.BytesIO(r.content))
+                    if min(real.width, real.height) < 500:
+                        last = f"{model}: too small " \
+                               f"({real.width}x{real.height})"
+                        continue
+                    print(f"      image ok (pollinations:{model}, "
+                          f"{real.width}x{real.height}, "
+                          f"{len(r.content) // 1024} KB)")
+                    return r.content, ctype.split(";")[0], \
+                        f"pollinations:{model}"
+                last = f"{model}: HTTP {r.status_code} {ctype[:30]} " \
+                       f"{len(r.content)}B"
+            except Exception as exc:
+                last = f"{model}: {str(exc)[:80]}"
+            if attempt >= 6:
+                break
+            time.sleep(min(8, 2 + 2 * attempt))  # backoff: queue / rate limit
+        print(f"      pollinations model '{model}' exhausted")
+    raise RuntimeError(f"pollinations failed ({last})")
+
+
+def overlay_headline(path: Path, caption: str, wide: bool,
+                     accent: tuple) -> None:
+    """Typeset the caption onto the finished image (in place).
+
+    Anton ALL CAPS, <=3 lines, <=84% width with auto-shrink, centered in the
+    upper-middle safe area, soft dark scrim behind the block + black stroke
+    and drop shadow. Deterministic spelling -> always legible at feed size."""
+    from PIL import Image, ImageDraw, ImageFilter, ImageFont
+    img = Image.open(path).convert("RGB")
+    w, h = img.size
+    font_path = ROOT / "fonts" / "Anton-Regular.ttf"
+    if not font_path.is_file():
+        print("      overlay: Anton font missing - text skipped")
+        return
+    max_w = int(w * 0.84)
+    draw0 = ImageDraw.Draw(img)
+
+    # 1) fit: shrink the font until the wrapped block fits the box
+    size, lines, font = int(w * 0.105), [], None
+    while size >= int(w * 0.045):
+        font = ImageFont.truetype(str(font_path), size)
+        lines, cur = [], ""
+        for word in caption.split():
+            trial = f"{cur} {word}".strip()
+            bbox = draw0.textbbox((0, 0), trial, font=font)
+            if bbox[2] - bbox[0] <= max_w or not cur:
+                cur = trial
+            else:
+                lines.append(cur)
+                cur = word
+        if cur:
+            lines.append(cur)
+        too_wide = any(draw0.textbbox((0, 0), ln, font=font)[2] > max_w
+                       for ln in lines)
+        if len(lines) <= 3 and not too_wide:
+            break
+        size -= max(2, size // 14)
+    if not (lines and font):
+        return
+    line_h = size + int(size * 0.18)
+    block_h = line_h * len(lines)
+
+    # 2) soft dark scrim behind the block (legibility on any artwork)
+    cx, cy = w // 2, int(h * (0.36 if wide else 0.34))
+    scrim = Image.new("L", (w, h), 0)
+    ImageDraw.Draw(scrim).rounded_rectangle(
+        [cx - max_w // 2 - size // 2, cy - block_h // 2 - size // 2,
+         cx + max_w // 2 + size // 2, cy + block_h // 2 + size // 2],
+        radius=size, fill=170)
+    scrim = scrim.filter(ImageFilter.GaussianBlur(size * 0.6))
+    dark = Image.new("RGB", (w, h), (2, 3, 8))
+    img = Image.composite(dark, img, scrim.point(lambda v: v * 60 // 100))
+
+    # 3) drop shadow pass + yellow/white fill with black stroke
+    draw = ImageDraw.Draw(img)
+    stroke = max(3, int(size * 0.075))
+    y = cy - block_h // 2
+    for ln in lines:
+        bbox = draw.textbbox((0, 0), ln, font=font, stroke_width=stroke)
+        lw = bbox[2] - bbox[0]
+        x, ty = cx - lw // 2 - bbox[0], y - bbox[1]
+        off = max(2, size // 22)
+        draw.text((x + off, ty + off), ln, font=font, fill=(0, 0, 0),
+                  stroke_width=stroke, stroke_fill=(0, 0, 0))
+        draw.text((x, ty), ln, font=font, fill=accent,
+                  stroke_width=stroke, stroke_fill=(0, 0, 0))
+        y += line_h
+    if path.suffix.lower() == ".jpg":
+        img.save(path, "JPEG", quality=92, optimize=True)
+    else:
+        img.save(path, "PNG")
+
+
+GLOW_HUES = {                                  # emotion -> rim-glow tint
+    "intense": (200, 30, 40), "curious": (110, 70, 200),
+    "playful": (200, 80, 170), "serious": (60, 90, 200),
+    "urgent": (220, 100, 30), "triumphant": (210, 160, 50),
+    "calm": (60, 160, 170), "sad": (70, 90, 150),
+}
+
+
+def local_artwork(ctx: dict, wide: bool, seed: int) -> tuple[bytes, str, str]:
+    """Offline safety net, rendered entirely locally (no network): dark
+    navy/violet brand gradient + emotion-tinted rim glow + film grain +
+    vignette. Text-free - the caption pass typesets the headline."""
+    import random
+    from PIL import Image, ImageDraw, ImageFilter
+    rnd = random.Random(seed)
+    w, h = YT_SIZE if wide else IG_SIZE
+    top, bottom = (14, 17, 38), (3, 4, 10)
+    img = Image.new("RGB", (w, h))
+    px = img.load()
+    for y in range(h):
+        f = y / max(1, h - 1)
+        row = tuple(int(top[i] + (bottom[i] - top[i]) * f) for i in range(3))
+        for x in range(w):
+            px[x, y] = row
+    hue = GLOW_HUES.get(str(ctx.get("hook_emotion", "")).lower(),
+                        (110, 70, 200))
+    glow = Image.new("RGB", (w, h), hue)
+    mask = Image.new("L", (w, h), 0)
+    gr = int(min(w, h) * (0.52 if wide else 0.42))
+    gx = int(w * rnd.uniform(0.3, 0.7))
+    gy = int(h * (0.62 if wide else 0.55))
+    ImageDraw.Draw(mask).ellipse([gx - gr, gy - gr, gx + gr, gy + gr], fill=85)
+    mask = mask.filter(ImageFilter.GaussianBlur(min(w, h) // 6))
+    img = Image.composite(Image.blend(img, glow, 0.55), img, mask)
+    vig = Image.new("L", (w, h), 0)
+    ImageDraw.Draw(vig).ellipse([-w // 3, -h // 3, w + w // 3, h + h // 3],
+                                fill=255)
+    vig = vig.filter(ImageFilter.GaussianBlur(min(w, h) // 5))
+    black = Image.new("RGB", (w, h), (0, 0, 0))
+    img = Image.composite(img, black, vig.point(lambda v: 40 + v * 215 // 255))
+    noise = Image.effect_noise((w, h), 22).convert("L")
+    img = Image.blend(img, Image.merge("RGB", (noise, noise, noise)), 0.05)
+    buf = io.BytesIO()
+    img.save(buf, "PNG")
+    return buf.getvalue(), "image/png", "local-artwork (offline fallback)"
+
+
+# ---------------------------------------------------------------------------
 # Postprocess: exact pixel sizes, crop-never-stretch, API size limits
 # ---------------------------------------------------------------------------
 
@@ -692,49 +935,18 @@ def save_image(img_bytes: bytes, out_path: Path, target: tuple[int, int]) -> Pat
 # Variant building
 # ---------------------------------------------------------------------------
 
-def _fake_image(caption: str, wide: bool) -> tuple[bytes, str]:
-    """Debug-only local placeholder (no API): dark gradient + caption text.
-
-    Lets the whole save / preview / manifest path be exercised on machines
-    where the Gemini API is geo-blocked. Never used unless --fake is passed.
-    """
-    from PIL import Image, ImageDraw, ImageFont
-    w, h = YT_SIZE if wide else IG_SIZE
-    top, bottom = (16, 20, 46), (4, 5, 12)
-    img = Image.new("RGB", (w, h))
-    px = img.load()
-    for y in range(h):
-        f = y / max(1, h - 1)
-        px_row = tuple(int(top[i] + (bottom[i] - top[i]) * f) for i in range(3))
-        for x in range(w):
-            px[x, y] = px_row
-    draw = ImageDraw.Draw(img)
-    # symbolic "focal subject": a dim violet orb with rim light
-    orb_r = int(min(w, h) * 0.16)
-    cx, cy = int(w * 0.5), int(h * (0.68 if wide else 0.62))
-    draw.ellipse([cx - orb_r, cy - orb_r, cx + orb_r, cy + orb_r],
-                 fill=(52, 34, 84), outline=(120, 90, 200), width=max(2, w // 200))
-    if caption:
-        font_path = ROOT / "fonts" / "Anton-Regular.ttf"
-        font = ImageFont.truetype(str(font_path), int(w * 0.075)) \
-            if font_path.is_file() else ImageFont.load_default()
-        stroke = max(3, int(w * 0.008))
-        bbox = draw.textbbox((0, 0), caption, font=font, stroke_width=stroke)
-        tw_, th_ = bbox[2] - bbox[0], bbox[3] - bbox[1]
-        tx = (w - tw_) // 2
-        ty = int(h * 0.12)
-        draw.text((tx, ty), caption, font=font, fill=(245, 217, 10),
-                  stroke_width=stroke, stroke_fill=(0, 0, 0))
-    import io as _io
-    buf = _io.BytesIO()
-    img.save(buf, "PNG")
-    return buf.getvalue(), "image/png"
-
-
 def build_variant(name: str, caption: str, ctx: dict, run_folder: Path,
                   api_key: str | None, fake: bool = False) -> dict | None:
-    """One variant -> native 16:9 + native 9:16, text-verified, saved."""
-    info: dict = {"generator": "fake-local (debug)" if fake else "gemini-image",
+    """One variant -> native 16:9 + native 9:16, saved.
+
+    Free path (default): Pollinations paints TEXT-FREE artwork, the caption
+    is typeset locally (deterministic spelling). Gemini path
+    (THUMB_IMAGE_PROVIDER=gemini): the model paints the text itself and a
+    vision read-back verifies it (v2 behaviour)."""
+    provider = "local" if fake else PROVIDER
+    info: dict = {"generator": ("local-artwork (debug)" if fake else
+                                "gemini-image" if provider == "gemini" else
+                                "pollinations-flux (free)"),
                   "frame_timestamp": None,          # no video frames anymore
                   "caption_used": caption or "",
                   "original_text": (ctx.get("hook_text") if name == "hook"
@@ -742,7 +954,7 @@ def build_variant(name: str, caption: str, ctx: dict, run_folder: Path,
                   "emotion": (ctx.get("hook_emotion") if name == "hook"
                               else ctx.get("mid_emotion", "")) if name != "clean" else "",
                   "beat_index": 0 if name == "hook" else ctx.get("mid_index"),
-                  "files": {}}
+                  "files": {}, "models": {}}
     if name == "clean":
         info.update({"original_text": "", "emotion": ctx.get("hook_emotion", ""),
                      "beat_index": None, "caption_used": ""})
@@ -754,33 +966,59 @@ def build_variant(name: str, caption: str, ctx: dict, run_folder: Path,
         aspect = "16:9" if wide else "9:16"
         target = YT_SIZE if wide else IG_SIZE
         ext = "jpg" if wide else "png"
-        prompt = build_prompt(name, caption, ctx, wide)
-        if fake:
-            img, mime = _fake_image(caption, wide)
-            used = "fake-local (debug)"
-        else:
-            img, mime, used = gemini_image(prompt, aspect, api_key)
-        model_used = used
-        out = save_image(img, run_folder / "thumbnails" / f"{name}_{tag}.{ext}",
-                         target)
-        info["files"][tag] = str(out.relative_to(run_folder))
-        kb = out.stat().st_size / 1024
-        print(f"      {name}/{tag}: {out.name} ({kb:.0f} KB)"
-              f"{' [FAKE]' if fake else ''}")
+        out = run_folder / "thumbnails" / f"{name}_{tag}.{ext}"
 
-        if caption and not fake:
-            verdict = verify_text(img, mime, caption, api_key)
-            info["text_verified"] = bool(verdict)
-            if verdict is False:
-                print(f"      {name}/{tag}: text mismatch - regenerating once")
-                img, mime, used = gemini_image(
-                    prompt + "\nIMPORTANT: spell the headline EXACTLY as "
-                    "given, letter by letter, no substitutions.",
-                    aspect, api_key)
-                out = save_image(img, out, target)
-                verdict2 = verify_text(img, mime, caption, api_key)
-                info["text_verified"] = bool(verdict2) if verdict2 is not None \
-                    else False
+        if provider == "gemini" and not fake:
+            # PAID path (v2 behaviour): the model paints the headline text.
+            prompt = build_prompt(name, caption, ctx, wide, paint_text=True)
+            img, mime, used = gemini_image(prompt, aspect, api_key)
+            out = save_image(img, out, target)
+            if caption:
+                verdict = verify_text(img, mime, caption, api_key)
+                info["text_verified"] = bool(verdict)
+                if verdict is False:
+                    print(f"      {name}/{tag}: text mismatch - "
+                          "regenerating once")
+                    img, mime, used = gemini_image(
+                        prompt + "\nIMPORTANT: spell the headline EXACTLY as "
+                        "given, letter by letter, no substitutions.",
+                        aspect, api_key)
+                    out = save_image(img, out, target)
+                    verdict2 = verify_text(img, mime, caption, api_key)
+                    info["text_verified"] = bool(verdict2) \
+                        if verdict2 is not None else False
+        else:
+            # FREE path: text-free artwork, then deterministic typography.
+            prompt = build_prompt(name, caption, ctx, wide, paint_text=False)
+            if fake:
+                img, mime, used = local_artwork(ctx, wide,
+                                                seed_for(run_folder.name,
+                                                         name, tag))
+            else:
+                try:
+                    img, mime, used = pollinations_image(
+                        prompt, wide, seed_for(run_folder.name, name, tag))
+                except Exception as exc:
+                    if provider == "pollinations":
+                        raise
+                    print(f"      pollinations unavailable "
+                          f"({str(exc)[:70]})\n      -> local brand artwork "
+                          "fallback")
+                    img, mime, used = local_artwork(
+                        ctx, wide, seed_for(run_folder.name, name, tag))
+            out = save_image(img, out, target)
+            if caption:
+                overlay_headline(out, caption, wide,
+                                 ACCENT_YELLOW if name == "hook"
+                                 else ACCENT_WHITE)
+                info["text_verified"] = True   # deterministic local typeset
+
+        info["files"][tag] = str(out.relative_to(run_folder))
+        info["models"][tag] = used
+        kb = out.stat().st_size / 1024
+        print(f"      {name}/{tag}: {out.name} ({kb:.0f} KB, {used})"
+              f"{' [FAKE]' if fake else ''}")
+        model_used = used
     info["model"] = model_used or ""
     info["prompt_style"] = name
     return info
@@ -806,14 +1044,15 @@ def find_run(output_dir: str, run_id: str | None) -> Path:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Generate fully-Gemini thumbnail variants for the newest "
-                    "(or given) run")
+        description="Generate AI thumbnail variants (free Pollinations artwork "
+                    " + local typography) for the newest (or given) run")
     parser.add_argument("--list-models", action="store_true",
                         help="probe: print which models this API key can use "
                              "(image + text) and exit")
     parser.add_argument("--fake", action="store_true",
-                        help="debug: build local placeholder images instead of "
-                             "calling Gemini (tests the save/manifest path)")
+                        help="debug: build local brand artwork instead of "
+                             "calling the image provider (tests the full "
+                             "save/overlay/manifest path offline)")
     parser.add_argument("--run-id", help="run folder under --output-dir")
     parser.add_argument("--output-dir", default="output")
     parser.add_argument("--video", help="explicit final_short.mp4 (run = parent)")
@@ -835,14 +1074,22 @@ def main() -> int:
 
     # --list-models must work WITHOUT a run folder -> handle before find_run
     if args.list_models:
-        if not api_key:
-            print("ERROR: GEMINI_API_KEY not set - cannot probe models")
-            return 1
+        if api_key:
+            try:
+                list_models(api_key)
+            except Exception as exc:
+                print(f"gemini model probe failed: {str(exc)[:300]}")
+        else:
+            print("GEMINI_API_KEY not set - skipping gemini probe")
+        print("  --- free provider check (pollinations, no key needed) ---")
         try:
-            list_models(api_key)
+            img, _mime, used = pollinations_image(
+                "A tiny plain blue circle on a plain white background.",
+                True, seed_for("probe", "probe", "probe"))
+            print(f"    pollinations:flux -> WORKS "
+                  f"({len(img) // 1024} KB via {used})")
         except Exception as exc:
-            print(f"model probe failed: {str(exc)[:300]}")
-            return 1
+            print(f"    pollinations -> fails ({str(exc)[:90]})")
         return 0
 
     run_folder = Path(args.video).parent if args.video \
@@ -861,12 +1108,19 @@ def main() -> int:
         not in ("0", "false", "off", "no")
 
     print("=" * 60)
-    print("  STEP 2.6 - THUMBNAILS (fully Gemini-generated)")
+    print("  STEP 2.6 - THUMBNAILS (AI-generated, $0 free pipeline)")
     print(f"  run: {run_folder.name} | default variant: {variant_pref} "
           f"| build: {','.join(wanted)} | auto-attach: {auto_upload}")
+    provider_note = {
+        "auto": "pollinations flux (free) + local artwork fallback",
+        "pollinations": "pollinations flux (free)",
+        "gemini": "gemini-image (paid)",
+        "local": "local artwork only",
+    }[PROVIDER]
+    print(f"  provider: {provider_note}")
     print("=" * 60)
-    if not api_key:
-        print("WARNING: GEMINI_API_KEY not set - cannot generate thumbnails")
+    if not api_key and PROVIDER == "gemini":
+        print("WARNING: GEMINI_API_KEY not set - gemini provider cannot run")
         return 1 if args.strict else 0
 
     t0 = time.time()
@@ -939,13 +1193,18 @@ def main() -> int:
         "run_id": run_folder.name,
         "video": "final_short.mp4",
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "generator": "gemini-image (no video frames)",
+        "generator": ("gemini-image (no video frames)" if PROVIDER == "gemini"
+                      else "pollinations-flux + local typography "
+                           "(free, no video frames)"),
+        "image_provider": "gemini" if PROVIDER == "gemini" else "pollinations",
+        "cost": "$0",
         "image_model": variants[chosen].get("model", "") if chosen else "",
         "mode": ctx["mode"],
         "config": {"thumbnail_variant": variant_pref,
                    "auto_upload_thumbnail": auto_upload,
                    "variants_built": wanted,
-                   "image_model": _IMAGE_ENV or _IMAGE_FALLBACKS[0]},
+                   "provider": PROVIDER,
+                   "image_model": POLLINATIONS_MODEL_ENV or "flux"},
         "variants": variants,
         "selected": selected,
     }

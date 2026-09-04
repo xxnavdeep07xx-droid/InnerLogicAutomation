@@ -233,7 +233,8 @@ jobs:
       # is skipped gracefully otherwise, so the job never fails on setup).
       #   YouTube: YT_CLIENT_ID / YT_CLIENT_SECRET / YT_REFRESH_TOKEN
       #            (one-time: python tools/yt_refresh_token.py)
-      #   Instagram: IG_USERNAME + IG_PASSWORD, or preferably IG_SESSIONID
+      #   Instagram: IG_SESSION_JSON (best, made once at home with
+      #   tools/ig_make_session.py), or IG_SESSIONID, or username+password
       # ---------------------------------------------------------------------
       - name: Publish to YouTube Shorts + Instagram Reels
         if: inputs.model_probe != 'on'
@@ -246,6 +247,7 @@ jobs:
           IG_USERNAME: ${{ secrets.IG_USERNAME }}
           IG_PASSWORD: ${{ secrets.IG_PASSWORD }}
           IG_SESSIONID: ${{ secrets.IG_SESSIONID }}
+          IG_SESSION_JSON: ${{ secrets.IG_SESSION_JSON }}
           AUTO_UPLOAD_THUMBNAIL: ${{ inputs.auto_upload_thumbnail || 'true' }}
         run: python step3_upload.py
 

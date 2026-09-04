@@ -42,7 +42,12 @@ from __future__ import annotations
 import argparse
 import sys
 
-SCOPES = ["https://www.googleapis.com/auth/youtube.upload"]
+# youtube.upload        -> videos.insert (uploads) + thumbnails.set
+# youtube.force-ssl     -> videos.delete / videos.update (purge, privacy)
+# Requested TOGETHER so one refresh token covers the whole automation;
+# Google shows both on the consent screen.
+SCOPES = ["https://www.googleapis.com/auth/youtube.upload",
+          "https://www.googleapis.com/auth/youtube.force-ssl"]
 CLIENT_CONFIG_TEMPLATE = {
     "installed": {
         "client_id": "",
@@ -79,7 +84,7 @@ def main() -> int:
     flow = InstalledAppFlow.from_client_config(config, SCOPES)
 
     print("\nA browser window will open - sign in with the channel's Google "
-          "account and approve the upload permission...\n")
+          "account and approve BOTH permissions (upload + manage/delete)...\n")
     creds = flow.run_local_server(port=0, prompt="consent",
                                   access_type="offline")
 
@@ -91,6 +96,8 @@ def main() -> int:
     print(f"  YT_REFRESH_TOKEN:\n    {creds.refresh_token}\n")
     print("=" * 60)
     print("  The daily workflow will refresh this token automatically.")
+    print("  This token can now ALSO delete/update videos (force-ssl scope)")
+    print("  - e.g. the Purge Channel workflow or tools/yt_purge.py.")
     return 0
 
 
