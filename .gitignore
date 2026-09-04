@@ -1,0 +1,23 @@
+# Secrets - never commit
+.env
+
+# Generated outputs
+output/
+
+# Local video assets (drop your own background.mp4 in the project root)
+*.mp4
+# ...except the shipped default background, which CI needs:
+!assets/background.mp4
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Curated library clip cache (downloaded from Pexels at runtime)
+curated_library/cache/
+curated_library/_library_state.json
+
+# YouTube OAuth assets (client secrets, tokens, session files) - NEVER commit
+upload/

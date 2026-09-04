@@ -1,0 +1,23 @@
+# Python dependencies (pip install -r requirements.txt)
+# NOTE: ffmpeg is a SYSTEM package, not pip:
+#   Ubuntu/CI:  sudo apt-get install -y ffmpeg
+#   macOS:      brew install ffmpeg
+#   Windows:    winget install ffmpeg
+
+# Step 1: script + voiceover
+google-genai>=1.0.0
+edge-tts>=7.0.0
+python-dotenv>=1.0.1
+
+# Step 2: video render
+moviepy>=2.1.0,<3
+numpy>=1.26.0                        # music_gen ambient synthesizer
+
+# Step 2.5: dynamic Pexels backgrounds
+requests>=2.31.0
+
+# Step 3: auto-publish
+google-api-python-client>=2.100.0   # YouTube Data API v3
+google-auth>=2.23.0
+google-auth-oauthlib>=1.1.0         # one-time refresh-token helper
+instagrapi>=2.1.0                   # Instagram Reels

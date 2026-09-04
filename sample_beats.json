@@ -1,0 +1,14 @@
+{
+  "title": "ben_franklin_effect",
+  "hook_strength_notes": "Opens with a reversal of common wisdom, creates immediate curiosity gap",
+  "beats": [
+    {"text": "Doing favors makes people like you less, not more.", "emotion": "intense", "emphasis_words": ["like you less"], "visual_concept": "quiet imbalance, one side giving", "pause_after_ms": 400},
+    {"text": "It's called the Ben Franklin effect.", "emotion": "curious", "emphasis_words": ["Ben Franklin effect"], "visual_concept": "old handwriting, a written note", "pause_after_ms": 0},
+    {"text": "Franklin got a rival to like him by asking to borrow a book.", "emotion": "curious", "emphasis_words": ["borrow a book"], "visual_concept": "hand reaching for something small", "pause_after_ms": 0},
+    {"text": "Not by doing the rival a favor. By asking for one.", "emotion": "playful", "emphasis_words": ["asking for one"], "visual_concept": "role reversal, unexpected turn", "pause_after_ms": 300},
+    {"text": "Your brain justifies effort by deciding it must like the person.", "emotion": "serious", "emphasis_words": ["justifies effort"], "visual_concept": "internal conflict, mental rationalizing", "pause_after_ms": 0},
+    {"text": "So next time you want someone to like you,", "emotion": "urgent", "emphasis_words": [], "visual_concept": "anticipation, a pause before action", "pause_after_ms": 200},
+    {"text": "stop helping them. Ask them to help you.", "emotion": "triumphant", "emphasis_words": ["Ask them to help you"], "visual_concept": "quiet confidence, reversal of power", "pause_after_ms": 0}
+  ],
+  "cta": "Try it once this week — and watch what happens."
+}

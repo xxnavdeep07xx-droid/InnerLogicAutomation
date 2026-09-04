@@ -1,0 +1,18 @@
+{
+  "totals": {
+    "brain_neurons": 6,
+    "candle_focus": 2,
+    "chess_strategy": 2,
+    "hands_writing": 6,
+    "wave_crash": 2,
+    "weighing_scale": 6
+  },
+  "videos": {
+    "fixture_v2": {
+      "brain_neurons": 1,
+      "hands_writing": 1,
+      "wave_crash": 1,
+      "weighing_scale": 1
+    }
+  }
+}
