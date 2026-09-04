@@ -1,17 +1,20 @@
 {
   "totals": {
     "brain_neurons": 6,
+    "calm_water": 1,
     "candle_focus": 2,
     "chess_strategy": 2,
     "clock_gears": 1,
     "crowd_anonymous": 1,
     "door_light": 1,
     "empty_corridor": 1,
-    "eye_closeup": 1,
+    "eye_closeup": 2,
     "hands_writing": 6,
-    "mirror_identity": 1,
+    "mirror_identity": 2,
     "paper_burn": 1,
+    "puppet_ropes": 1,
     "shattered_glass": 1,
+    "storm_clouds": 1,
     "wave_crash": 2,
     "weighing_scale": 6,
     "whisper_shadow": 2
@@ -36,6 +39,13 @@
       "paper_burn": 1,
       "shattered_glass": 1,
       "whisper_shadow": 1
+    },
+    "run_20260904_180918": {
+      "calm_water": 1,
+      "eye_closeup": 1,
+      "mirror_identity": 1,
+      "puppet_ropes": 1,
+      "storm_clouds": 1
     }
   }
 }
