@@ -214,6 +214,7 @@ jobs:
             output/**/final_short.mp4
             output/**/script.txt
             output/**/word_timings.json
+            output/**/metadata.json
           retention-days: 14
           if-no-files-found: error
 
