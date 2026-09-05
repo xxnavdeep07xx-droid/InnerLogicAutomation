@@ -248,6 +248,15 @@ jobs:
           IG_PASSWORD: ${{ secrets.IG_PASSWORD }}
           IG_SESSIONID: ${{ secrets.IG_SESSIONID }}
           IG_SESSION_JSON: ${{ secrets.IG_SESSION_JSON }}
+          # Official Instagram Content Publishing API (recommended - works
+          # from GitHub's datacenter IPs; instagrapi gets 467-blocked there):
+          #   IG_ACCESS_TOKEN - long-lived token from your Meta app
+          #   IG_USER_ID      - the Instagram professional account id
+          # GH_RELEASE_TOKEN is the workflow's own token - used to stage the
+          # mp4 on a temporary public Release as the Graph API video_url.
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          GH_RELEASE_TOKEN: ${{ github.token }}
           AUTO_UPLOAD_THUMBNAIL: ${{ inputs.auto_upload_thumbnail || 'true' }}
         run: python step3_upload.py
 

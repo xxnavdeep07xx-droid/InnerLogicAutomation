@@ -591,6 +591,154 @@ def _require_env(name: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Instagram Reels - OFFICIAL Graph API path (Content Publishing API)
+#
+# Why a second method?  Instagram's private app API (instagrapi) hard-blocks
+# cloud/datacenter IPs with error 467 - GitHub Actions runners can never pass
+# it, no matter how fresh the session cookie is.  The OFFICIAL
+# server-to-server Graph API on the other hand is DESIGNED for cloud callers:
+# no cookies, no device fingerprint, no IP reputation checks.
+#
+# Requirements (one-time, free):
+#   - Instagram professional (Business/Creator) account
+#   - Meta app + access token with instagram_business_content_publish
+#   - Secrets: IG_ACCESS_TOKEN, IG_USER_ID, GH_RELEASE_TOKEN (CI github.token)
+#
+# The Graph API ingests from a PUBLIC video URL, so the Reel file is staged
+# as a temporary asset on a public GitHub Release (this repo is public) and
+# the release is deleted again right after publishing.
+# ---------------------------------------------------------------------------
+
+GRAPH_VER = "v21.0"
+
+
+def _graph_req(url: str, method: str = "GET", data: dict | None = None,
+               timeout: int = 90) -> dict:
+    from urllib.parse import urlencode
+    from urllib.request import Request, urlopen
+    body = urlencode(data).encode() if data else None
+    req = Request(url, method=method, data=body)
+    with urlopen(req, timeout=timeout) as r:
+        return json.loads(r.read())
+
+
+def _gh_api(url: str, method: str, token: str, payload: dict | None = None,
+            raw_body: bytes | None = None, content_type: str = ""):
+    from urllib.request import Request, urlopen
+    body = raw_body if raw_body is not None else (
+        json.dumps(payload).encode() if payload is not None else None)
+    req = Request(url, method=method, data=body)
+    req.add_header("Authorization", f"token {token}")
+    req.add_header("Accept", "application/vnd.github+json")
+    if content_type:
+        req.add_header("Content-Type", content_type)
+    with urlopen(req, timeout=300) as r:
+        data = r.read()
+        return json.loads(data) if data else {}
+
+
+def _release_video_url(video_path: Path, repo: str, token: str, tag: str) -> str:
+    """Stage the mp4 on a temporary public GitHub Release; return its URL."""
+    rel = _gh_api(f"https://api.github.com/repos/{repo}/releases", "POST",
+                  token, {"tag_name": tag, "name": tag,
+                          "body": "temporary Reel transfer asset (auto-deleted)",
+                          "prerelease": True})
+    upload_url = rel["upload_url"].split("{")[0]
+    asset = _gh_api(f"{upload_url}?name={video_path.name}", "POST", token,
+                    raw_body=video_path.read_bytes(),
+                    content_type="application/octet-stream")
+    return asset["browser_download_url"]
+
+
+def _delete_release(repo: str, token: str, tag: str) -> None:
+    """Best-effort cleanup of the temporary release + tag (never fatal)."""
+    try:
+        rel = _gh_api(f"https://api.github.com/repos/{repo}/releases/tags/{tag}",
+                      "GET", token)
+        _gh_api(f"https://api.github.com/repos/{repo}/releases/{rel['id']}",
+                "DELETE", token)
+        _gh_api(f"https://api.github.com/repos/{repo}/git/refs/tags/{tag}",
+                "DELETE", token)
+        print("      [graph] temp release cleaned up")
+    except Exception as exc:
+        print(f"      [graph] temp release cleanup skipped ({str(exc)[:80]})")
+
+
+def upload_instagram_graph(video_path: Path, caption: str) -> str:
+    """Publish a Reel via the official Content Publishing API.
+
+    container (video_url) -> poll status -> media_publish -> permalink."""
+    from urllib.parse import urlencode
+
+    token = os.getenv("IG_ACCESS_TOKEN", "").strip()
+    ig_user = os.getenv("IG_USER_ID", "").strip()
+    gh_token = (os.getenv("GH_RELEASE_TOKEN", "")
+                or os.getenv("GH_TOKEN", "")).strip()
+    repo = os.getenv("GITHUB_REPOSITORY",
+                     "xxnavdeep07xx-droid/InnerLogicAutomation").strip()
+    if not (token and ig_user):
+        raise RuntimeError("IG_ACCESS_TOKEN / IG_USER_ID secrets not set")
+    if not gh_token:
+        raise RuntimeError("GH_RELEASE_TOKEN missing "
+                           "(CI: pass ${{ github.token }})")
+
+    base = f"https://graph.facebook.com/{GRAPH_VER}"
+    tag = "reel-" + datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+
+    print(f"      [graph] staging video on public GitHub Release ({tag}) ...")
+    video_url = _release_video_url(video_path, repo, gh_token, tag)
+    print(f"      [graph] video_url ready "
+          f"({video_path.stat().st_size / (1024 * 1024):.1f} MB)")
+
+    try:
+        print("      [graph] creating REELS media container ...")
+        cont = _graph_req(
+            f"{base}/{ig_user}/media", "POST",
+            data={"media_type": "REELS",
+                  "video_url": video_url,
+                  "caption": caption[:2200],       # IG hard limit
+                  "share_to_feed": "true"})
+        cid = cont.get("id", "")
+        if not cid:
+            raise RuntimeError(f"container rejected: {json.dumps(cont)[:200]}")
+        print(f"      [graph] container {cid} - waiting for processing ...")
+
+        deadline = time.time() + 600              # IG usually needs 30-120 s
+        status = {}
+        while True:
+            status = _graph_req(
+                f"{base}/{cid}?" + urlencode(
+                    {"fields": "status_code,status", "access_token": token}))
+            code = status.get("status_code", "")
+            if code == "FINISHED":
+                break
+            if code == "ERROR":
+                raise RuntimeError(f"container processing ERROR: "
+                                   f"{json.dumps(status)[:200]}")
+            if time.time() > deadline:
+                raise RuntimeError(f"container timeout, last status: "
+                                   f"{json.dumps(status)[:200]}")
+            time.sleep(10)
+
+        pub = _graph_req(f"{base}/{ig_user}/media_publish", "POST",
+                         data={"creation_id": cid, "access_token": token})
+        mid = pub.get("id", "")
+        permalink = ""
+        if mid:
+            try:
+                info = _graph_req(
+                    f"{base}/{mid}?" + urlencode(
+                        {"fields": "permalink", "access_token": token}))
+                permalink = info.get("permalink", "")
+            except Exception:
+                pass
+        print(f"      [graph] published media id {mid}")
+        return permalink or f"https://www.instagram.com/ (media id {mid})"
+    finally:
+        _delete_release(repo, gh_token, tag)
+
+
+# ---------------------------------------------------------------------------
 # Orchestration
 # ---------------------------------------------------------------------------
 
@@ -696,11 +844,23 @@ def main() -> int:
         print("      thumbnail: no YouTube-resolution file - skipped")
 
     # Instagram --------------------------------------------------------------
+    # Method priority:
+    #   1. OFFICIAL Graph API (IG_ACCESS_TOKEN + IG_USER_ID) - works from any
+    #      datacenter IP, no 467 risk. RECOMMENDED for GitHub Actions.
+    #   2. instagrapi sessionid / password - often 467-blocked on cloud IPs.
     if args.skip_instagram:
         print("      Instagram: SKIPPED (--skip-instagram)")
     else:
         print("      Instagram upload ...")
-        if _has_creds("IG_SESSIONID") or _has_creds("IG_USERNAME", "IG_PASSWORD"):
+        if _has_creds("IG_ACCESS_TOKEN", "IG_USER_ID"):
+            print("      method: OFFICIAL Graph API (datacenter-safe)")
+            try:
+                results["Instagram"] = upload_instagram_graph(video, ig_caption)
+                thumb_results["Instagram"] = "cover: IG picks a frame (Graph " \
+                    "API has no custom-cover endpoint)"
+            except Exception as exc:
+                failures["Instagram"] = str(exc)
+        elif _has_creds("IG_SESSIONID") or _has_creds("IG_USERNAME", "IG_PASSWORD"):
             try:
                 results["Instagram"] = upload_instagram(
                     video, ig_caption, thumbnail["instagram"] if thumbnail else None)
@@ -710,8 +870,9 @@ def main() -> int:
             except Exception as exc:
                 failures["Instagram"] = str(exc)
         else:
-            print("      SKIPPED: set IG_USERNAME + IG_PASSWORD (or IG_SESSIONID) "
-                  "secrets (see README)")
+            print("      SKIPPED: set IG_ACCESS_TOKEN + IG_USER_ID (official "
+                  "API, recommended) or IG_USERNAME + IG_PASSWORD / "
+                  "IG_SESSIONID secrets (see README)")
 
     # Summary ----------------------------------------------------------------
     print()
