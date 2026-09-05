@@ -1,0 +1,45 @@
+# ============================================================================
+#  IG Probe - test the Instagram session WITHOUT rendering a video
+#
+#  Manual-only (workflow_dispatch). Runs the exact production login flow
+#  from step3_upload.py (pinned Pixel 4 fingerprint + stable UUIDs) and:
+#    exit 0 -> session alive, the daily run will be able to post Reels
+#    exit 2 -> login rejected (stale sessionid or 467 datacenter block)
+#    exit 3 -> login accepted but session validation failed
+#
+#  Use it right after updating the IG_SESSIONID secret - a 2-minute check
+#  instead of a 15-minute video render.
+# ============================================================================
+
+name: IG Probe
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ig-probe
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install instagrapi
+        run: |
+          python -m pip install --upgrade pip
+          pip install instagrapi
+
+      - name: Probe the Instagram session (read-only)
+        env:
+          IG_SESSIONID: ${{ secrets.IG_SESSIONID }}
+        run: python -u tools/ig_probe_ci.py
