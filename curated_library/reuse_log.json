@@ -3,21 +3,22 @@
     "brain_neurons": 7,
     "calm_water": 1,
     "candle_focus": 3,
-    "chess_strategy": 2,
+    "chess_strategy": 3,
     "clock_gears": 1,
     "crowd_anonymous": 1,
     "door_light": 2,
     "empty_corridor": 1,
     "eye_closeup": 2,
     "hands_writing": 6,
+    "light_particles": 1,
     "mirror_identity": 3,
     "paper_burn": 1,
     "puppet_ropes": 1,
     "shattered_glass": 1,
     "storm_clouds": 3,
     "wave_crash": 2,
-    "weighing_scale": 6,
-    "whisper_shadow": 3
+    "weighing_scale": 7,
+    "whisper_shadow": 4
   },
   "videos": {
     "fixture_v2": {
@@ -53,6 +54,12 @@
       "door_light": 1,
       "mirror_identity": 1,
       "storm_clouds": 2,
+      "whisper_shadow": 1
+    },
+    "run_20260906_173146": {
+      "chess_strategy": 1,
+      "light_particles": 1,
+      "weighing_scale": 1,
       "whisper_shadow": 1
     }
   }
