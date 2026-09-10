@@ -280,10 +280,19 @@ jobs:
 
       # ---------------------------------------------------------------------
       # Manual-publish staging (runs EVERY render - this is the default path):
+      #   0. generate title/description/tags/IG caption (step3 --dry-run =
+      #      metadata only, uploads nothing) - the publish step that used to
+      #      do this is opt-in now, so metadata must be built separately
       #   1. daily-YYYYMMDD Release with final_short.mp4 + hook thumbnail
       #   2. regenerate site/data/manifest.json (the site + bookmarklets
       #      read it) and commit it so the deploy job ships it to Pages
       # ---------------------------------------------------------------------
+      - name: Generate metadata (title / description / captions)
+        if: success() && inputs.model_probe != 'on'
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: python -u step3_upload.py --dry-run
+
       - name: Stage video for the manual-upload site
         if: success() && inputs.model_probe != 'on'
         env:
