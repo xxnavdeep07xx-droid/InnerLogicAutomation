@@ -1,7 +1,7 @@
 {
   "totals": {
     "brain_neurons": 7,
-    "calm_water": 3,
+    "calm_water": 4,
     "candle_focus": 5,
     "chains_rust": 1,
     "chess_strategy": 3,
@@ -15,12 +15,12 @@
     "marble_bust": 3,
     "mirror_identity": 3,
     "paper_burn": 1,
-    "puppet_ropes": 1,
+    "puppet_ropes": 2,
     "shattered_glass": 1,
     "storm_clouds": 5,
-    "wave_crash": 2,
+    "wave_crash": 3,
     "weighing_scale": 7,
-    "whisper_shadow": 5
+    "whisper_shadow": 6
   },
   "videos": {
     "fixture_v2": {
@@ -79,6 +79,12 @@
       "candle_focus": 1,
       "clock_gears": 1,
       "marble_bust": 1,
+      "whisper_shadow": 1
+    },
+    "run_20260910_123343": {
+      "calm_water": 1,
+      "puppet_ropes": 1,
+      "wave_crash": 1,
       "whisper_shadow": 1
     }
   }
