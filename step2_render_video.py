@@ -1075,7 +1075,8 @@ def build_safe_zone_guides(duration: float, anchor_y: float, args) -> list:
 # ---------------------------------------------------------------------------
 
 def build_group_layer(group: list[dict], group_start: float, group_end: float,
-                      font: str, args, hook_boost: bool = False) -> CompositeVideoClip:
+                      font: str, args, hook_boost: bool = False,
+                      spring: bool = False) -> CompositeVideoClip:
     """Render one word group as a self-contained composite clip.
 
     Inside the nested clip the timeline is relative to group_start, so the
@@ -1212,8 +1213,24 @@ def build_group_layer(group: list[dict], group_start: float, group_end: float,
             accent = accent_clips[i]
             accent = accent.with_start(max(0.0, group[i]["start"] - group_start))
             accent = accent.with_duration(max(0.08, group[i]["end"] - group[i]["start"]))
-            accent = accent.with_position((x + (slot_w - accent.size[0]) // 2,
-                                           acc_ys[i] + pad))
+            base_pos = (x + (slot_w - accent.size[0]) // 2, acc_ys[i] + pad)
+            if spring:
+                # v3 motion edit: the accent word pops with an under-damped
+                # spring (0.70 -> ~1.06 overshoot -> 1.0 in ~0.25 s) instead
+                # of a hard cut-in; emphasis words additionally jitter.
+                from motion_edit import spring_scale, jitter_offset
+                is_emph = bool(group[i].get("emphasis"))
+
+                def spring_pos(t, _bp=base_pos, _e=is_emph):
+                    if not _e:
+                        return _bp
+                    return (_bp[0] + jitter_offset(t),
+                            _bp[1] + 0.6 * jitter_offset(t + 0.03))
+
+                accent = accent.with_effects([vfx.Resize(spring_scale)])
+                accent = accent.with_position(spring_pos)
+            else:
+                accent = accent.with_position(base_pos)
             layers.append(accent)
         x += slot_w + gap
 
@@ -1248,7 +1265,8 @@ def build_group_layer(group: list[dict], group_start: float, group_end: float,
 
 def build_caption_layers(words: list[dict], audio_duration: float, font: str,
                          args, skip_before: float = 0.0,
-                         boost_until: float = 0.0) -> list:
+                         boost_until: float = 0.0,
+                         spring: bool = False) -> list:
     """All caption group layers, with the hook handoff rules applied.
 
     skip_before (title_card style): no word-by-word captions may appear
@@ -1266,7 +1284,7 @@ def build_caption_layers(words: list[dict], audio_duration: float, font: str,
             continue                        # fully under the title card
         boost = boost_until > 0 and group_start < boost_until
         layer = build_group_layer(group, group_start, group_end, font, args,
-                                  hook_boost=boost)
+                                  hook_boost=boost, spring=spring)
         if skip_before > 0 and group_start < skip_before:
             # Straddler: begin at the handoff, but keep the ORIGINAL display
             # end (== the next group's start). Shifting start while keeping
@@ -1349,6 +1367,11 @@ def main() -> int:
     parser.add_argument("--emphasis-color", default=DEFAULT_EMPHASIS_COLOR,
                         help=f"color for metadata-driven emphasis words "
                              f"(default: {DEFAULT_EMPHASIS_COLOR})")
+    parser.add_argument("--style", choices=("v1", "v2"), default=None,
+                        help="render style: v2 = motion edit (layered scenes, "
+                             "Ken Burns, whip/punch/dip transitions, art cards, "
+                             "spring captions, brand-noir grade); v1 = classic "
+                             "render (A/B fallback). Default: STYLE env, else v1")
     parser.add_argument("--mode", choices=("auto", "beats", "classic"), default="auto",
                         help="assembly style: 'beats' uses the v2 beat metadata "
                              "(cut-per-beat, pulse, mood music, ducking, SFX, hook "
@@ -1414,6 +1437,20 @@ def main() -> int:
           f"| {len(beats)} beats" if mode == "beats" else
           f"      mode: classic")
     font = resolve_font(args.font)
+
+    # v3 motion edit (STYLE=v2 / --style v2): layered scenes, Ken Burns,
+    # editor's-mix transitions, art cards, spring captions, brand grade.
+    # v1 stays fully intact as the instant A/B fallback flag.
+    motion_on = False
+    scenes = None
+    try:
+        import motion_edit
+        style_wanted = motion_edit.style_enabled(args)
+        motion_on = style_wanted and mode == "beats"
+        if style_wanted and mode != "beats":
+            print("      STYLE=v2 needs beats metadata - rendering v1")
+    except Exception as exc:
+        print(f"      motion edit module unavailable ({str(exc)[:80]}) - v1 render")
     print(f"      caption font: {font}")
 
     # Audio + background --------------------------------------------------------
@@ -1424,7 +1461,10 @@ def main() -> int:
         duration = min(duration, args.limit)
         print(f"      PREVIEW MODE: rendering only the first {duration:.1f}s")
     if args.prep_only:
-        if mode == "beats":
+        if motion_on:
+            background, _kind, _cuts, _scenes = motion_edit.build_background_v3(
+                timings, args, run_folder, duration, args.fps, beats)
+        elif mode == "beats":
             background, _kind, _cuts = resolve_background_v2(
                 timings, args, run_folder, duration, args.fps, beats)
         else:
@@ -1434,13 +1474,23 @@ def main() -> int:
         audio.close()
         print("      background cache ready.")
         return 0
-    if mode == "beats":
+    if motion_on:
+        try:
+            background, bg_kind, scene_cuts, scenes = motion_edit.build_background_v3(
+                timings, args, run_folder, duration, args.fps, beats)
+        except Exception as exc:
+            import traceback as _tb
+            print(f"      motion edit failed ({str(exc)[:90]}) - v1 fallback")
+            _tb.print_exc()
+            motion_on = False
+    if not motion_on and mode == "beats":
         background, bg_kind, scene_cuts = resolve_background_v2(
             timings, args, run_folder, duration, args.fps, beats)
     else:
         background, bg_kind, scene_cuts = resolve_background(timings, args, run_folder,
                                                              duration, args.fps)
-    print(f"      voiceover: {duration:.1f}s | background: {bg_kind}")
+    print(f"      voiceover: {duration:.1f}s | background: {bg_kind}"
+          + (" (motion edit)" if motion_on else ""))
 
     # Music bed + sound design ---------------------------------------------------
     mood = dominant_mood(beats) if mode == "beats" else "serious"
@@ -1482,9 +1532,11 @@ def main() -> int:
                 sfx_level = args.sfx_level if args.sfx_level is not None \
                     else float(os.getenv("SFX_LEVEL", "1.0") or 1.0)
                 emphasis_times = [w["start"] for w in words if w.get("emphasis")]
+                boom = (motion_edit.boom_times(scenes)
+                        if motion_on and scenes is not None else None)
                 sfx_path = sfx_gen.build_layer(scene_cuts, emphasis_times, duration,
                                                run_folder / "_sfx_layer.wav",
-                                               level=sfx_level)
+                                               level=sfx_level, boom_times=boom)
                 if sfx_path:
                     sfx_clip = AudioFileClip(str(sfx_path)).subclipped(0, duration)
                     audio_layers.append(sfx_clip)
@@ -1537,7 +1589,8 @@ def main() -> int:
                       f"(legacy: over the captions)")
     caption_layers = build_caption_layers(words, duration, font, args,
                                           skip_before=skip_before,
-                                          boost_until=boost_until)
+                                          boost_until=boost_until,
+                                          spring=motion_on)
     print(f"      {len(caption_layers)} caption group layers ready "
           f"| anchor-y: {caption_y_pct(args):.2f} "
           f"({platform}) | caption font: {caption_font_size(args)}px "
@@ -1545,8 +1598,21 @@ def main() -> int:
           f"| hook: {hook_note}")
 
     # Composite + export --------------------------------------------------------
+    card_layers = []
+    if motion_on and env_flag("ART_CARDS"):
+        try:
+            import art_library
+            beat_cards = art_library.ensure_cards_for_beats(beats, run_folder)
+            card_layers = motion_edit.build_card_layers(scenes, beat_cards,
+                                                        run_folder, args)
+        except Exception as exc:
+            print(f"      art cards skipped ({str(exc)[:80]})")
+    elif motion_on:
+        print("      art cards: off (ART_CARDS=off)")
+
     print("[5/5] Rendering final_short.mp4 (libx264 + aac) ...")
-    layers = [background] + caption_layers + ([overlay] if overlay else [])
+    layers = ([background] + card_layers + caption_layers
+              + ([overlay] if overlay else []))
     if guides_on:
         layers += build_safe_zone_guides(duration, caption_y_pct(args), args)
         print("      safe-zone guides: ON (debug render - do not publish)")
@@ -1564,6 +1630,9 @@ def main() -> int:
         ffmpeg_params=["-pix_fmt", "yuv420p"],   # player/social-platform safe
     )
 
+    if motion_on and env_flag("GRADE", "on"):
+        motion_edit.apply_grade(out_path)
+
     size_mb = out_path.stat().st_size / (1024 * 1024)
     print()
     print("=" * 60)
@@ -1575,6 +1644,7 @@ def main() -> int:
           f"| sfx: {'on' if sfx_on else 'off'} "
           f"| punch-ins: {'on' if punch_on else 'off'} "
           f"| hook: {hook_style if mode == 'beats' else 'n/a (classic)'} "
+          f"| style: {'v2 motion edit' if motion_on else 'v1'} "
           f"| platform: {platform} "
           f"| caption-y: {caption_y_pct(args):.2f} "
           f"| clearance: {bottom_clearance_pct(args):.2f}")

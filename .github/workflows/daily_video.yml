@@ -177,6 +177,13 @@ jobs:
           TTS_BACKEND: ${{ inputs.tts_backend || 'edge' }}    # edge | elevenlabs | playht
           SFX: ${{ inputs.sfx == 'off' && 'off' || 'auto' }}  # whoosh/ding layer
           HOOK_STYLE: ${{ inputs.hook_style || 'title_card' }}   # title_card | word_by_word | both
+          # ---- v3 motion edit (STYLE) ----
+          # v2 = layered motion edit: Ken Burns scenes, whip/punch/dip
+          # transitions, art-card layers, spring captions, brand-noir grade.
+          # v1 = classic render - instant A/B fallback: set the repo
+          # Variable VIDEO_STYLE=v1 (no code change needed).
+          STYLE: ${{ vars.VIDEO_STYLE || 'v2' }}
+          ART_CARDS: ${{ inputs.art_cards == 'off' && 'off' || 'on' }}
           # Platform-aware safe zones (v3): preset picked by target_platform -
           #   youtube 0.52/0.28 | instagram 0.62/0.20 | tiktok 0.60/0.22 | generic 0.58/0.24
           # (anchor / bottom clearance). CAPTION_Y_PCT stays an EXPLICIT override:
@@ -264,16 +271,22 @@ jobs:
 
       # The curated-footage reuse tracker (curated_library/reuse_log.json)
       # is updated by every render so the same clips rotate across videos.
-      - name: Commit footage-reuse tracker
+      # The art pack (art_library/) is the channel's persistent illustration
+      # identity: new PNGs generated this run are committed so later runs
+      # reuse them for free (hybrid library strategy).
+      - name: Commit footage-reuse tracker + art pack
         if: success() && inputs.model_probe != 'on'
         run: |
           git config user.name "innerlogic-bot"
           git config user.email "bot@innerlogic.local"
           git add curated_library/reuse_log.json || true
+          git add art_library/reuse_log.json || true
+          git add art_library/cache/ || true
+          git add art_library/library.json || true
           if git diff --cached --quiet; then
-            echo "reuse tracker unchanged"
+            echo "reuse tracker + art pack unchanged"
           else
-            git commit -m "chore: update footage reuse tracker [skip ci]"
+            git commit -m "chore: update footage reuse tracker + art pack [skip ci]"
             git pull --rebase || true
             git push
           fi

@@ -1,0 +1,542 @@
+{
+  "style_lock": ", dark surreal editorial illustration, deep violet and indigo palette, warm amber rim light highlights, grainy film texture, dramatic chiaroscuro lighting, minimal composition, cinematic mood, no text, no words, no watermark",
+  "note": "Hand-curated illustration concepts. Prompt + STYLE_SUFFIX go to Pollinations Flux. PNGs cached in cache/<id>.png and committed back by CI.",
+  "entries": [
+    {
+      "id": "mirror_split",
+      "prompt": "a man looking at his cracked reflection in a tall mirror, the reflection smiling back differently",
+      "tags": [
+        "mirror",
+        "reflection",
+        "self",
+        "identity",
+        "honest"
+      ],
+      "emotions": [
+        "serious",
+        "intense"
+      ]
+    },
+    {
+      "id": "puppet_hands",
+      "prompt": "marionette puppet strings attached to a person's wrists held by a giant hand above",
+      "tags": [
+        "puppet",
+        "control",
+        "strings",
+        "manipulation",
+        "power"
+      ],
+      "emotions": [
+        "serious",
+        "intense"
+      ]
+    },
+    {
+      "id": "chess_king",
+      "prompt": "a lone chess king piece standing on the board edge surrounded by fallen pieces",
+      "tags": [
+        "chess",
+        "strategy",
+        "power",
+        "game",
+        "move"
+      ],
+      "emotions": [
+        "serious",
+        "calm"
+      ]
+    },
+    {
+      "id": "mask_reveal",
+      "prompt": "a porcelain mask half removed revealing a shadowed face beneath",
+      "tags": [
+        "mask",
+        "hidden",
+        "truth",
+        "reveal",
+        "identity"
+      ],
+      "emotions": [
+        "curious",
+        "intense"
+      ]
+    },
+    {
+      "id": "crowd_blur",
+      "prompt": "one sharp figure standing still in a blurred rushing crowd",
+      "tags": [
+        "crowd",
+        "alone",
+        "different",
+        "society",
+        "stand"
+      ],
+      "emotions": [
+        "serious",
+        "urgent"
+      ]
+    },
+    {
+      "id": "storm_head",
+      "prompt": "a dark storm cloud swirling inside a glass head silhouette",
+      "tags": [
+        "mind",
+        "thought",
+        "storm",
+        "overthink",
+        "anxiety"
+      ],
+      "emotions": [
+        "intense",
+        "serious"
+      ]
+    },
+    {
+      "id": "hourglass_ember",
+      "prompt": "an hourglass where the falling sand turns into glowing embers",
+      "tags": [
+        "time",
+        "patience",
+        "burn",
+        "wait",
+        "running"
+      ],
+      "emotions": [
+        "calm",
+        "urgent"
+      ]
+    },
+    {
+      "id": "maze_brain",
+      "prompt": "a labyrinth carved into the shape of a human brain seen from above",
+      "tags": [
+        "mind",
+        "maze",
+        "puzzle",
+        "thought",
+        "logic"
+      ],
+      "emotions": [
+        "curious",
+        "serious"
+      ]
+    },
+    {
+      "id": "eye_keyhole",
+      "prompt": "a giant eye looking through a keyhole of a locked door",
+      "tags": [
+        "watch",
+        "observe",
+        "secret",
+        "attention",
+        "notice"
+      ],
+      "emotions": [
+        "curious"
+      ]
+    },
+    {
+      "id": "broken_chain",
+      "prompt": "a heavy iron chain snapped open with warm light bursting from the gap",
+      "tags": [
+        "chain",
+        "free",
+        "break",
+        "habit",
+        "freedom"
+      ],
+      "emotions": [
+        "triumphant",
+        "intense"
+      ]
+    },
+    {
+      "id": "shadow_follow",
+      "prompt": "a small figure walking with a longer darker shadow stretching behind",
+      "tags": [
+        "shadow",
+        "follow",
+        "past",
+        "guilt",
+        "dark"
+      ],
+      "emotions": [
+        "serious",
+        "calm"
+      ]
+    },
+    {
+      "id": "twin_doors",
+      "prompt": "two doors side by side, one bright one dark, a hand hesitating between them",
+      "tags": [
+        "choice",
+        "decision",
+        "path",
+        "hesitate",
+        "pick"
+      ],
+      "emotions": [
+        "curious",
+        "urgent"
+      ]
+    },
+    {
+      "id": "ladder_fog",
+      "prompt": "a wooden ladder climbing into thick fog with no top visible",
+      "tags": [
+        "climb",
+        "goal",
+        "unknown",
+        "ambition",
+        "fog"
+      ],
+      "emotions": [
+        "curious",
+        "calm"
+      ]
+    },
+    {
+      "id": "scale_tipping",
+      "prompt": "old brass scales tipping heavily to one side under a single feather",
+      "tags": [
+        "balance",
+        "justice",
+        "favor",
+        "weigh",
+        "give"
+      ],
+      "emotions": [
+        "serious"
+      ]
+    },
+    {
+      "id": "hand_release",
+      "prompt": "an open hand releasing a small bird into the sky",
+      "tags": [
+        "let go",
+        "release",
+        "freedom",
+        "give",
+        "trust"
+      ],
+      "emotions": [
+        "triumphant",
+        "calm"
+      ]
+    },
+    {
+      "id": "iceberg_tip",
+      "prompt": "an iceberg at night with a vast glowing mass hidden below the waterline",
+      "tags": [
+        "hidden",
+        "depth",
+        "iceberg",
+        "more",
+        "surface"
+      ],
+      "emotions": [
+        "curious",
+        "serious"
+      ]
+    },
+    {
+      "id": "wolf_fold",
+      "prompt": "a wolf wearing a sheep's wool coat standing inside a flock",
+      "tags": [
+        "wolf",
+        "disguise",
+        "fake",
+        "trust",
+        "danger"
+      ],
+      "emotions": [
+        "intense",
+        "curious"
+      ]
+    },
+    {
+      "id": "rope_fray",
+      "prompt": "a rope bridge mid-span with strands fraying apart over a dark canyon",
+      "tags": [
+        "trust",
+        "fragile",
+        "break",
+        "risk",
+        "bridge"
+      ],
+      "emotions": [
+        "intense",
+        "urgent"
+      ]
+    },
+    {
+      "id": "compass_spin",
+      "prompt": "a brass compass with its needle spinning wildly on an old map",
+      "tags": [
+        "lost",
+        "direction",
+        "confuse",
+        "purpose",
+        "compass"
+      ],
+      "emotions": [
+        "curious"
+      ]
+    },
+    {
+      "id": "clocks_wall",
+      "prompt": "a wall of melting clocks all showing different times",
+      "tags": [
+        "time",
+        "clock",
+        "wait",
+        "inconsistent",
+        "drift"
+      ],
+      "emotions": [
+        "curious",
+        "calm"
+      ]
+    },
+    {
+      "id": "throne_dust",
+      "prompt": "an empty throne in an abandoned hall covered in dust with one beam of light",
+      "tags": [
+        "power",
+        "empty",
+        "ego",
+        "throne",
+        "fall"
+      ],
+      "emotions": [
+        "serious",
+        "calm"
+      ]
+    },
+    {
+      "id": "glass_crack",
+      "prompt": "a drinking glass mid-shatter frozen in time with amber light inside",
+      "tags": [
+        "break",
+        "fragile",
+        "moment",
+        "shatter",
+        "pressure"
+      ],
+      "emotions": [
+        "intense",
+        "urgent"
+      ]
+    },
+    {
+      "id": "smoke_figure",
+      "prompt": "a human figure made of smoke dissolving from the feet up",
+      "tags": [
+        "disappear",
+        "fade",
+        "vanish",
+        "leave",
+        "drift"
+      ],
+      "emotions": [
+        "calm",
+        "serious"
+      ]
+    },
+    {
+      "id": "book_ember",
+      "prompt": "an open book with pages glowing and curling into embers at the edges",
+      "tags": [
+        "knowledge",
+        "burn",
+        "learn",
+        "story",
+        "read"
+      ],
+      "emotions": [
+        "curious",
+        "calm"
+      ]
+    },
+    {
+      "id": "key_lock",
+      "prompt": "an old key turning in a lock with light spilling through the opening door",
+      "tags": [
+        "unlock",
+        "solution",
+        "secret",
+        "key",
+        "open"
+      ],
+      "emotions": [
+        "curious",
+        "triumphant"
+      ]
+    },
+    {
+      "id": "card_tower",
+      "prompt": "a tall tower of playing cards wavering with one card sliding out",
+      "tags": [
+        "fragile",
+        "collapse",
+        "risk",
+        "unstable",
+        "fall"
+      ],
+      "emotions": [
+        "intense",
+        "playful"
+      ]
+    },
+    {
+      "id": "footsteps_fade",
+      "prompt": "a trail of footprints in snow slowly covered by fresh snowfall",
+      "tags": [
+        "past",
+        "erase",
+        "forget",
+        "trace",
+        "memory"
+      ],
+      "emotions": [
+        "calm",
+        "serious"
+      ]
+    },
+    {
+      "id": "lantern_dark",
+      "prompt": "a hand holding a small lantern cutting through a vast dark forest",
+      "tags": [
+        "guide",
+        "hope",
+        "dark",
+        "light",
+        "alone"
+      ],
+      "emotions": [
+        "calm",
+        "triumphant"
+      ]
+    },
+    {
+      "id": "split_face",
+      "prompt": "a face split down the middle, one half calm and one half screaming",
+      "tags": [
+        "two faces",
+        "emotion",
+        "hidden",
+        "calm",
+        "rage"
+      ],
+      "emotions": [
+        "intense"
+      ]
+    },
+    {
+      "id": "weight_shrug",
+      "prompt": "a figure shrugging while carrying a huge boulder chained to their back",
+      "tags": [
+        "burden",
+        "effort",
+        "carry",
+        "work",
+        "heavy"
+      ],
+      "emotions": [
+        "serious",
+        "urgent"
+      ]
+    },
+    {
+      "id": "candle_gust",
+      "prompt": "a single candle flame bending hard in the wind but not going out",
+      "tags": [
+        "persist",
+        "resist",
+        "pressure",
+        "endure",
+        "flame"
+      ],
+      "emotions": [
+        "intense",
+        "triumphant"
+      ]
+    },
+    {
+      "id": "needle_thread",
+      "prompt": "a needle pulling a golden thread stitching two torn pieces together",
+      "tags": [
+        "fix",
+        "repair",
+        "connect",
+        "mend",
+        "favor"
+      ],
+      "emotions": [
+        "curious",
+        "calm"
+      ]
+    },
+    {
+      "id": "empty_chair",
+      "prompt": "an empty chair at a dinner table set for two",
+      "tags": [
+        "absence",
+        "lonely",
+        "wait",
+        "missing",
+        "attention"
+      ],
+      "emotions": [
+        "serious",
+        "calm"
+      ]
+    },
+    {
+      "id": "moth_flame",
+      "prompt": "a moth circling a bright flame dangerously close",
+      "tags": [
+        "attract",
+        "desire",
+        "pull",
+        "danger",
+        "draw"
+      ],
+      "emotions": [
+        "curious",
+        "urgent"
+      ]
+    },
+    {
+      "id": "whisper_ear",
+      "prompt": "a hand cupped near a giant ear with sound waves drawn as ripples",
+      "tags": [
+        "listen",
+        "whisper",
+        "influence",
+        "talk",
+        "words"
+      ],
+      "emotions": [
+        "curious",
+        "playful"
+      ]
+    },
+    {
+      "id": "mirror_hands",
+      "prompt": "two hands reaching toward each other through a mirror surface",
+      "tags": [
+        "connect",
+        "reach",
+        "help",
+        "ask",
+        "mirror"
+      ],
+      "emotions": [
+        "curious",
+        "triumphant"
+      ]
+    }
+  ]
+}

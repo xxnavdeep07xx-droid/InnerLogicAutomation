@@ -29,6 +29,8 @@ WHOOSH_GAIN = 0.10
 WHOOSH_DUR = 0.30
 DING_GAIN = 0.16
 DING_DUR = 0.45
+BOOM_GAIN = 0.20                        # v3: sub-boom under punch/dip cuts
+BOOM_DUR = 0.55
 MAX_DINGS = 8
 MIN_DING_GAP = 0.8
 LEVEL_DEFAULT = 1.0
@@ -76,6 +78,19 @@ def make_ding() -> np.ndarray:
     return tone / max(np.abs(tone).max(), 1e-9)
 
 
+def make_boom() -> np.ndarray:
+    """v3 sub-boom: 70 -> 38 Hz sine sweep, fast attack, long decay.
+    Sits under the punch/dip transitions so a section change is FELT."""
+    n = int(BOOM_DUR * SAMPLE_RATE)
+    t = np.arange(n) / SAMPLE_RATE
+    freq = 70.0 * (38.0 / 70.0) ** (t / BOOM_DUR)
+    phase = 2 * np.pi * np.cumsum(freq) / SAMPLE_RATE
+    body = np.sin(phase)
+    body *= _fade_envelope(n, 0.005, BOOM_DUR * 0.85)
+    body *= np.exp(-t / 0.16)
+    return body / max(np.abs(body).max(), 1e-9)
+
+
 def _add(track: np.ndarray, sample: np.ndarray, start: float, gain: float) -> None:
     i0 = int(start * SAMPLE_RATE)
     if i0 < 0 or i0 >= len(track):
@@ -85,11 +100,13 @@ def _add(track: np.ndarray, sample: np.ndarray, start: float, gain: float) -> No
 
 
 def build_layer(cuts: list[float], emphasis_times: list[float], duration: float,
-                out_path: Path, level: float | None = None) -> Path | None:
+                out_path: Path, level: float | None = None,
+                boom_times: list[float] | None = None) -> Path | None:
     """Render the SFX track for one video -> _sfx_layer.wav (16-bit stereo).
 
     cuts            scene-cut timestamps (whoosh ends exactly at each cut)
     emphasis_times  start times of emphasized words (ding per word, capped)
+    boom_times      v3: punch/dip transition starts (sub-boom under each)
     """
     level = LEVEL_DEFAULT if level is None else float(level)
     if level <= 0 or duration <= 1:
@@ -102,6 +119,11 @@ def build_layer(cuts: list[float], emphasis_times: list[float], duration: float,
         if start < 0.02:
             start = 0.0
         _add(track, whoosh, start, WHOOSH_GAIN * level)
+
+    if boom_times:
+        boom = make_boom()
+        for t in boom_times:
+            _add(track, boom, float(t), BOOM_GAIN * level)
 
     last = -10.0
     used = 0
