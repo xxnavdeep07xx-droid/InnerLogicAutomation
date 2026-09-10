@@ -1,6 +1,22 @@
 {
- "updated_at": "2026-09-04T00:00:00+00:00",
+ "updated_at": "2026-09-10T08:40:26+00:00",
  "drop_time_utc": "15:00",
  "repo": "xxnavdeep07xx-droid/InnerLogicAutomation",
- "videos": []
+ "videos": [
+  {
+   "tag": "daily-20260910",
+   "run_id": "run_20260910_083107",
+   "created_at": "2026-09-10T08:40:24+00:00",
+   "title": "run_20260910_083107",
+   "description": "",
+   "tags": [],
+   "ig_caption": "",
+   "hashtags": [],
+   "video_file": "final_short.mp4",
+   "thumb_file": "hook_youtube.jpg",
+   "video_url": "https://github.com/xxnavdeep07xx-droid/InnerLogicAutomation/releases/download/daily-20260910/final_short.mp4",
+   "thumb_url": "https://github.com/xxnavdeep07xx-droid/InnerLogicAutomation/releases/download/daily-20260910/hook_youtube.jpg",
+   "release_url": "https://github.com/xxnavdeep07xx-droid/InnerLogicAutomation/releases/tag/daily-20260910"
+  }
+ ]
 }
