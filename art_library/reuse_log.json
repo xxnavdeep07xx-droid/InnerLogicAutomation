@@ -9,6 +9,16 @@
       "mask_reveal",
       "puppet_hands",
       "shadow_follow"
+    ],
+    "run_20260910_125439": [
+      "card_tower",
+      "clocks_wall",
+      "crowd_blur",
+      "empty_chair",
+      "iceberg_tip",
+      "key_lock",
+      "mirror_split",
+      "throne_dust"
     ]
   },
   "totals": {}
