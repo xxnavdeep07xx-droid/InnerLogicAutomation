@@ -1483,12 +1483,13 @@ def main() -> int:
             print(f"      motion edit failed ({str(exc)[:90]}) - v1 fallback")
             _tb.print_exc()
             motion_on = False
-    if not motion_on and mode == "beats":
-        background, bg_kind, scene_cuts = resolve_background_v2(
-            timings, args, run_folder, duration, args.fps, beats)
-    else:
-        background, bg_kind, scene_cuts = resolve_background(timings, args, run_folder,
-                                                             duration, args.fps)
+    if not motion_on:                       # v1 path (A/B fallback)
+        if mode == "beats":
+            background, bg_kind, scene_cuts = resolve_background_v2(
+                timings, args, run_folder, duration, args.fps, beats)
+        else:
+            background, bg_kind, scene_cuts = resolve_background(
+                timings, args, run_folder, duration, args.fps)
     print(f"      voiceover: {duration:.1f}s | background: {bg_kind}"
           + (" (motion edit)" if motion_on else ""))
 
