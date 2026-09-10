@@ -2,17 +2,17 @@
   "totals": {
     "brain_neurons": 7,
     "calm_water": 3,
-    "candle_focus": 4,
+    "candle_focus": 5,
     "chains_rust": 1,
     "chess_strategy": 3,
-    "clock_gears": 1,
+    "clock_gears": 2,
     "crowd_anonymous": 1,
     "door_light": 2,
     "empty_corridor": 1,
     "eye_closeup": 2,
     "hands_writing": 6,
     "light_particles": 1,
-    "marble_bust": 2,
+    "marble_bust": 3,
     "mirror_identity": 3,
     "paper_burn": 1,
     "puppet_ropes": 1,
@@ -20,7 +20,7 @@
     "storm_clouds": 5,
     "wave_crash": 2,
     "weighing_scale": 7,
-    "whisper_shadow": 4
+    "whisper_shadow": 5
   },
   "videos": {
     "fixture_v2": {
@@ -74,6 +74,12 @@
       "candle_focus": 1,
       "chains_rust": 1,
       "storm_clouds": 1
+    },
+    "run_20260910_090057": {
+      "candle_focus": 1,
+      "clock_gears": 1,
+      "marble_bust": 1,
+      "whisper_shadow": 1
     }
   }
 }
