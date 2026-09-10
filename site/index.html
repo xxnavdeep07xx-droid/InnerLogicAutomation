@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>InnerLogic — Daily Drop</title>
+<meta name="description" content="Daily faceless short, ready to publish. One video a day, manual upload buttons for YouTube Shorts and Instagram Reels.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%230D0D1A'/><text y='72' x='50' text-anchor='middle' font-size='60' fill='%23F5D90A' font-family='Arial Black'>IL</text></svg>">
+</head>
+<body>
+
+<div class="glow glow-a" aria-hidden="true"></div>
+<div class="glow glow-b" aria-hidden="true"></div>
+
+<header class="top">
+  <div class="brand">
+    <span class="brand-mark">IL</span>
+    <span class="brand-name">InnerLogic <em>daily drop</em></span>
+  </div>
+  <div id="statusChip" class="chip chip-wait">
+    <span class="chip-dot"></span><span id="statusText">loading manifest…</span>
+  </div>
+</header>
+
+<main>
+  <!-- ============ TODAY ============ -->
+  <section class="hero" id="hero">
+    <div class="player-wrap" id="playerWrap">
+      <div class="player-frame">
+        <video id="player" playsinline controls preload="metadata"
+               poster="" src=""></video>
+        <div class="player-empty" id="playerEmpty">
+          <div class="pe-icon">▶</div>
+          <p>No drop yet.<br>The next video renders at <b>8:30 PM IST</b>.</p>
+        </div>
+      </div>
+      <a id="downloadBtn" class="btn btn-ghost btn-sm" download="innerlogic_short.mp4" href="#">⬇ Download MP4</a>
+    </div>
+
+    <div class="meta" id="meta">
+      <p class="kicker" id="dropDate">—</p>
+      <h1 id="videoTitle">Today's video</h1>
+      <p class="desc" id="videoDesc"></p>
+      <div class="tags" id="videoTags"></div>
+
+      <div class="actions">
+        <button class="btn btn-yt" id="ytBtn">
+          <span class="btn-ico">▶</span> Upload to YouTube
+        </button>
+        <button class="btn btn-ig" id="igBtn">
+          <span class="btn-ico">◎</span> Upload to Instagram
+        </button>
+      </div>
+      <div class="copychips">
+        <button class="chipbtn" id="copyTitle">copy title</button>
+        <button class="chipbtn" id="copyDesc">copy description</button>
+        <button class="chipbtn" id="copyTags">copy tags</button>
+        <button class="chipbtn" id="copyIg">copy IG caption</button>
+      </div>
+
+      <div class="markrow" id="markRow">
+        <label class="mark"><input type="checkbox" id="markYT"> posted on YouTube</label>
+        <label class="mark"><input type="checkbox" id="markIG"> posted on Instagram</label>
+      </div>
+
+      <details class="howto">
+        <summary>How the upload buttons work (30 sec)</summary>
+        <ol>
+          <li><b>Download the MP4</b> (or drag it straight from the player).</li>
+          <li><b>YouTube</b> — click <i>Upload to YouTube</i>: your clipboard now holds the full title + description, and YouTube Studio's upload page opens. Drag the file in, click the <b>YT Auto-Fill</b> bookmark (install below), press <b>Next → Publish</b>.</li>
+          <li><b>Instagram</b> — click <i>Upload to Instagram</i>: caption copied, instagram.com opens. Click ➕ → <i>Reel</i>, drag the file, click the <b>IG Auto-Fill</b> bookmark, hit <b>Share</b>.</li>
+        </ol>
+        <p class="fine">No site can pick a file for you — that's browser security. Everything else is one click.</p>
+      </details>
+    </div>
+  </section>
+
+  <!-- ============ BOOKMARKLETS ============ -->
+  <section class="strip" id="bookmarklets">
+    <div class="strip-head">
+      <h2>One-time install · auto-fill bookmarks</h2>
+      <p>Drag these two onto your bookmarks bar. Click them <b>while on the upload page</b> and today's text fills itself in.</p>
+    </div>
+    <div class="bm-row">
+      <a class="bm bm-yt" id="bmYT" href="#" onclick="return false;">
+        <span>🎯</span> YT Auto-Fill
+      </a>
+      <a class="bm bm-ig" id="bmIG" href="#" onclick="return false;">
+        <span>📱</span> IG Auto-Fill
+      </a>
+      <p class="bm-hint">↖ drag me to the bookmarks bar · works on<br><b>studio.youtube.com</b> and <b>instagram.com</b></p>
+    </div>
+  </section>
+
+  <!-- ============ STATS ============ -->
+  <section class="stats" id="stats">
+    <div class="stat">
+      <span class="stat-n" id="stTotal">0</span>
+      <span class="stat-l">videos ready</span>
+    </div>
+    <div class="stat">
+      <span class="stat-n" id="stStreak">0</span>
+      <span class="stat-l">day streak</span>
+    </div>
+    <div class="stat">
+      <span class="stat-n" id="stYt">0</span>
+      <span class="stat-l">posted to YT</span>
+    </div>
+    <div class="stat">
+      <span class="stat-n" id="stIg">0</span>
+      <span class="stat-l">posted to IG</span>
+    </div>
+    <div class="cal" id="cal" aria-label="last 30 days"></div>
+  </section>
+
+  <!-- ============ ARCHIVE ============ -->
+  <section class="archive" id="archive">
+    <div class="sec-head">
+      <h2>Archive</h2>
+      <p>Click any card to load it above. Everything is also on the
+        <a href="https://github.com/xxnavdeep07xx-droid/InnerLogicAutomation/releases" target="_blank" rel="noopener">Releases page</a>.</p>
+    </div>
+    <div class="grid" id="grid"></div>
+  </section>
+</main>
+
+<footer>
+  <p>Renders daily at <b>15:00 UTC (8:30 PM IST)</b> on GitHub Actions ·
+     auto-publish is <b>OFF</b> (set repo Variable <code>AUTO_PUBLISH=on</code> to re-enable) ·
+     <a href="https://github.com/xxnavdeep07xx-droid/InnerLogicAutomation" target="_blank" rel="noopener">repo</a></p>
+</footer>
+
+<div class="toast" id="toast">copied ✓</div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>

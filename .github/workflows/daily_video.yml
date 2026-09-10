@@ -230,15 +230,16 @@ jobs:
           if-no-files-found: ignore
 
       # ---------------------------------------------------------------------
-      # Auto-publish (runs only if the matching secrets exist; each platform
-      # is skipped gracefully otherwise, so the job never fails on setup).
+      # Auto-publish - OPT-IN ONLY now (user switched to manual via the site).
+      # To re-enable: repo Settings > Secrets and variables > Actions >
+      # Variables > New variable: AUTO_PUBLISH = on
       #   YouTube: YT_CLIENT_ID / YT_CLIENT_SECRET / YT_REFRESH_TOKEN
       #            (one-time: python tools/yt_refresh_token.py)
       #   Instagram: IG_SESSION_JSON (best) or IG_SESSIONID, or
       #            IG_USERNAME + IG_PASSWORD as the last resort
       # ---------------------------------------------------------------------
-      - name: Publish to YouTube Shorts + Instagram Reels
-        if: inputs.model_probe != 'on'
+      - name: Publish to YouTube Shorts + Instagram Reels (opt-in)
+        if: inputs.model_probe != 'on' && vars.AUTO_PUBLISH == 'on'
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
@@ -273,5 +274,69 @@ jobs:
             echo "reuse tracker unchanged"
           else
             git commit -m "chore: update footage reuse tracker [skip ci]"
+            git pull --rebase || true
             git push
           fi
+
+      # ---------------------------------------------------------------------
+      # Manual-publish staging (runs EVERY render - this is the default path):
+      #   1. daily-YYYYMMDD Release with final_short.mp4 + hook thumbnail
+      #   2. regenerate site/data/manifest.json (the site + bookmarklets
+      #      read it) and commit it so the deploy job ships it to Pages
+      # ---------------------------------------------------------------------
+      - name: Stage video for the manual-upload site
+        if: success() && inputs.model_probe != 'on'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python -u tools/publish_release.py
+
+      - name: Commit site manifest
+        if: success() && inputs.model_probe != 'on'
+        run: |
+          git config user.name "innerlogic-bot"
+          git config user.email "bot@innerlogic.local"
+          git add site/data/manifest.json
+          if git diff --cached --quiet; then
+            echo "manifest unchanged"
+          else
+            git commit -m "chore: daily site manifest [skip ci]"
+            git pull --rebase || true
+            git push
+          fi
+
+  # -------------------------------------------------------------------------
+  # GitHub Pages deploy - https://xxnavdeep07xx-droid.github.io/InnerLogicAutomation/
+  # Runs after job 1 so the checkout below contains the fresh manifest.
+  # -------------------------------------------------------------------------
+  deploy-site:
+    needs: generate-video
+    if: success() && !cancelled()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Check out repository (with the fresh manifest)
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Set up Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload site artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
