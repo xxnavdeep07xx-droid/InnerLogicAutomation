@@ -1,8 +1,9 @@
 {
   "totals": {
     "brain_neurons": 7,
-    "calm_water": 2,
-    "candle_focus": 3,
+    "calm_water": 3,
+    "candle_focus": 4,
+    "chains_rust": 1,
     "chess_strategy": 3,
     "clock_gears": 1,
     "crowd_anonymous": 1,
@@ -16,7 +17,7 @@
     "paper_burn": 1,
     "puppet_ropes": 1,
     "shattered_glass": 1,
-    "storm_clouds": 4,
+    "storm_clouds": 5,
     "wave_crash": 2,
     "weighing_scale": 7,
     "whisper_shadow": 4
@@ -66,6 +67,12 @@
     "run_20260907_190120": {
       "calm_water": 1,
       "marble_bust": 2,
+      "storm_clouds": 1
+    },
+    "run_20260910_083107": {
+      "calm_water": 1,
+      "candle_focus": 1,
+      "chains_rust": 1,
       "storm_clouds": 1
     }
   }
