@@ -94,10 +94,13 @@ DEFAULT_OUTPUT_DIR = "output"
 # - gemini-3.1-pro-preview: best quality, but NOT on the free tier (limit 0);
 #   it works immediately if billing is enabled on your AI Studio project.
 # - flash variants: free-tier friendly in most supported regions.
-# - legacy 2.5 names: kept for accounts that still have access to them.
+# - gemini-3.6-flash: Google's current recommended model (2026-09); older
+#   2.5 names started returning 404 "no longer available to new users".
+# - legacy 2.5 names: kept LAST for accounts that still have access.
 DEFAULT_MODEL_CHAIN = [
     "gemini-3.1-pro-preview",
     "gemini-flash-latest",
+    "gemini-3.6-flash",
     "gemini-3.1-flash-lite-preview",
     "gemini-3-flash-preview",
     "gemini-2.5-pro",
