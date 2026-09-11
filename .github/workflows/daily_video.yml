@@ -119,13 +119,16 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # rembg's U2Net segmentation model (4.7 MB) - cached so only the first
-      # run ever downloads it (the art-card cutout engine needs it)
-      - name: Cache rembg segmentation model
+      # rembg's U2Net cutout model (4.7 MB) + the YOLOv8n person detector
+      # (12 MB) that gates generated art - cached so only the first run
+      # ever downloads them
+      - name: Cache segmentation + person-detection models
         uses: actions/cache@v4
         with:
-          path: ~/.rembg
-          key: rembg-u2netp
+          path: |
+            ~/.rembg
+            ~/.cache/artdetect
+          key: art-models-v1
 
       - name: Pre-flight Gemini probe (fail fast with a clear error)
         env:

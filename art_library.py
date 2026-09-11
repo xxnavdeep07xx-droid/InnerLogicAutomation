@@ -54,7 +54,9 @@ STYLE_SUFFIX = (", dark surreal editorial illustration, deep violet and "
                 "indigo palette, warm amber rim light highlights, grainy "
                 "film texture, dramatic chiaroscuro lighting, ONE isolated "
                 "subject centered on a plain dark empty background, minimal "
-                "composition, no environment, no text, no words, no watermark")
+                "composition, no environment, no people, no person, no human "
+                "figure, no silhouette of a person, no face, no text, no "
+                "words, no watermark")
 
 POLLINATIONS_URL = "https://image.pollinations.ai/prompt/{prompt}"
 POLLINATIONS_MODELS = ["flux", "turbo"]
@@ -337,13 +339,15 @@ def _fetch_png(prompt: str, seed: int, deadline: float) -> bytes | None:
 
 
 def ensure_png(entry: dict, deadline: float) -> Path | None:
-    """The generated PNG for a library entry, from cache or freshly made."""
+    """The generated PNG for a library entry, from cache or freshly made.
+    Tainted generations shift the seed, so a retry draws a NEW image."""
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     cached = CACHE_DIR / f"{entry['id']}.png"
     if cached.is_file() and cached.stat().st_size > 20 * 1024:
         return cached
     import hashlib
     seed = int(hashlib.sha256(entry["id"].encode()).hexdigest()[:8], 16)
+    seed = (seed + 1009 * _bad_count(entry["id"])) % 9_999_991
     png = _fetch_png(entry["prompt"] + STYLE_SUFFIX, seed, deadline)
     if png is None:
         return None
@@ -433,7 +437,10 @@ def prepare_card(src: Path, width_px: int, out_path: Path,
 CUTOUT_MODEL = (os.getenv("ART_CUTOUT_MODEL", "u2netp") or "u2netp").strip()
 CUTOUT_MIN_COVERAGE = 0.03          # alpha must cover >= 3% (a real subject)
 CUTOUT_MAX_COVERAGE = 0.80          # ... but < 80% (not the whole frame)
+HUMAN_MAX_COVERAGE = float(         # generated art containing a person at
+    os.getenv("ART_HUMAN_MAX", "0.10"))   # >= this coverage is rejected
 _SESSION = None
+_HUMAN_SESSION = None
 
 
 def _rembg_session():
@@ -445,23 +452,144 @@ def _rembg_session():
     return _SESSION
 
 
-def ensure_cutout(entry: dict, deadline: float) -> Path | None:
+def _env_flag(name: str, default: str = "on") -> bool:
+    """Local env-flag helper (step2's env_flag, without the heavy import)."""
+    v = (os.getenv(name, "") or "").strip().lower()
+    if not v:
+        v = default
+    return v not in ("off", "0", "false", "none")
+
+
+def _human_session():
+    """DEPRECATED stub kept for API compat - the u2net_human_seg model
+    flagged hourglasses and chains as 'human' while missing small dark
+    figures. Person detection now uses YOLOv8n (see _person_detections)."""
+    return None
+
+
+# --- person detection (SSD-MobileNet v1, ONNX model zoo) --------------------
+# u2net_human_seg misfired on human-SHAPED objects (an hourglass is literally
+# human-silhouette shaped), so the gate runs a real COCO person detector
+# instead: SSD-MobileNet v1 from the onnx/models GitHub release (~27 MB,
+# cached, github.com is always reachable from CI). Person class only,
+# confidence-gated. A hit means the generated art contains a person -
+# regenerate with a new seed.
+DETECTOR_URL = ("https://github.com/onnx/models/raw/main/validated/vision/"
+                "object_detection_segmentation/ssd-mobilenetv1/model/"
+                "ssd_mobilenet_v1_10.onnx")
+DETECTOR_DIR = Path(os.getenv("ART_DETECT_DIR",
+                              str(Path.home() / ".cache" / "artdetect")))
+PERSON_CONF = float(os.getenv("ART_PERSON_CONF", "0.55"))
+# 0.55 calibrated visually: real-person art scores 0.60-0.99 (girl in
+# mirror 0.77, victorian woman 0.90, smoke figure 0.99), while hands
+# (0.45) and iceberg silhouettes (0.43) stay below the gate.
+PERSON_MIN_AREA = float(os.getenv("ART_PERSON_MIN_AREA", "0.03"))  # of frame
+
+
+def _detector_path() -> Path:
+    DETECTOR_DIR.mkdir(parents=True, exist_ok=True)
+    return DETECTOR_DIR / "ssd_mobilenet_v1_10.onnx"
+
+
+def _load_detector():
+    import onnxruntime as ort
+    p = _detector_path()
+    if not p.is_file() or p.stat().st_size < 1_000_000:
+        import requests as rq
+        tmp = p.with_suffix(".part")
+        with rq.get(DETECTOR_URL, stream=True, timeout=180) as r:
+            r.raise_for_status()
+            with tmp.open("wb") as fh:
+                for chunk in r.iter_content(1 << 20):
+                    fh.write(chunk)
+        tmp.replace(p)
+    return ort.InferenceSession(str(p), providers=["CPUExecutionProvider"])
+
+
+def _person_detections(img, conf_thres: float | None = None):
+    """[[x0,y0,x1,y1,conf], ...] for COCO class 1 (person) above threshold.
+    Coordinates are fractions of the original image size. Empty on any
+    failure (detector unavailable must never block a render)."""
+    try:
+        import numpy as _np
+        conf_thres = PERSON_CONF if conf_thres is None else conf_thres
+        sess = _load_detector()
+        W = H = 300
+        im = img.convert("RGB").resize((W, H))
+        # ssd_mobilenet_v1_10 takes NHWC uint8 0..255
+        blob = _np.asarray(im, dtype=_np.uint8)[None]
+        outs = sess.run(["detection_boxes:0", "detection_classes:0",
+                         "detection_scores:0"], {"image_tensor:0": blob})
+        boxes, classes, scores = outs[0][0], outs[1][0], outs[2][0]
+        hits = []
+        for i in range(len(classes)):
+            if int(classes[i]) != 1 or float(scores[i]) < conf_thres:
+                continue
+            y0, x0, y1, x1 = boxes[i]           # SSD boxes are yxyn
+            frac = (x1 - x0) * (y1 - y0)
+            if frac >= PERSON_MIN_AREA:
+                hits.append([float(x0), float(y0), float(x1), float(y1),
+                             float(scores[i])])
+        return hits
+    except Exception as exc:
+        print(f"      person detector unavailable ({str(exc)[:60]}) - "
+              "gate passes")
+        return []
+
+
+def _bad_path(entry_id: str) -> Path:
+    return CACHE_DIR / f"{entry_id}.bad"
+
+
+def _bad_count(entry_id: str) -> int:
+    try:
+        return int(_bad_path(entry_id).read_text().strip() or 0)
+    except Exception:
+        return 0
+
+
+def _bump_bad(entry_id: str) -> int:
+    n = _bad_count(entry_id) + 1
+    try:
+        CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        _bad_path(entry_id).write_text(str(n), encoding="utf-8")
+    except Exception:
+        pass
+    return n
+
+
+def ensure_cutout(entry: dict, deadline: float) -> tuple:
     """Transparent-background PNG for a library entry (cached per entry).
 
-    Falls back to None on any failure - callers then use the framed card,
-    so a missing model can never break a render."""
+    Returns (path_or_None, tainted). `tainted=True` means the generated
+    illustration contained a human figure - the base was deleted for a
+    re-seeded regeneration, and the caller must NOT use the framed-card
+    fallback either (the person is in the full image too)."""
     cut_path = CACHE_DIR / f"{entry['id']}_cut.png"
     if cut_path.is_file() and cut_path.stat().st_size > 10 * 1024:
-        return cut_path
+        return cut_path, False
     src = ensure_png(entry, deadline)
     if src is None:
-        return None
+        return None, False
     try:
         import time as _t
         t0 = _t.time()
         from PIL import Image
+        img = Image.open(src).convert("RGB")
+
+        # person detector first: a human in the generated art is exactly
+        # the "girl body" the user complained about - never ship it
+        hits = _person_detections(img)
+        if hits:
+            best = max(h[4] for h in hits)
+            n = _bump_bad(entry["id"])
+            src.unlink(missing_ok=True)     # taint recorded, retry reseeds
+            print(f"      art gate: '{entry['id']}' REJECTED - person "
+                  f"detected (conf {best:.2f}, {len(hits)} hit(s)); "
+                  f"regenerating with a new seed (attempt {n})")
+            return None, True
+
         from rembg import remove
-        img = Image.open(src).convert("RGBA")
         cut = remove(img, session=_rembg_session())
         alpha = cut.getchannel("A")
         hist = alpha.histogram()
@@ -470,14 +598,14 @@ def ensure_cutout(entry: dict, deadline: float) -> Path | None:
         if cov < CUTOUT_MIN_COVERAGE or cov > CUTOUT_MAX_COVERAGE:
             print(f"      art cutout: '{entry['id']}' rejected "
                   f"(alpha coverage {cov:.0%})")
-            return None
+            return None, False
         cut.save(cut_path, "PNG", optimize=True)
         print(f"      art cutout: '{entry['id']}' -> transparent PNG "
               f"({cov:.0%} subject, {(_t.time() - t0):.1f}s, {CUTOUT_MODEL})")
-        return cut_path
+        return cut_path, False
     except Exception as exc:
         print(f"      art cutout: '{entry['id']}' failed ({str(exc)[:70]})")
-        return None
+        return None, False
 
 
 # ---------------------------------------------------------------------------
@@ -586,13 +714,18 @@ def ensure_cards_for_beats(beats: list[dict], run_folder: Path) -> dict[int, Pat
         entry = chosen[idx]
         out = prep_dir / f"{entry['id']}_lg.png"
         ready = None
-        cut = ensure_cutout(entry, deadline)          # transparent subject
+        cut, tainted = ensure_cutout(entry, deadline)   # transparent subject
+        if tainted:
+            continue          # person detected in the art - no card at all
         if cut is not None:
             ready = prepare_cutout(cut, int(1080 * CARD_W["lg"]), out,
                                    tilt_deg=_tilt_for(entry["id"], "lg"))
             if ready:
                 n_cut += 1
-        if ready is None:                             # framed-card fallback
+        if ready is None and _env_flag("ART_FRAMED_FALLBACK", "off"):
+            # v2.1.1: framed fallback is OFF by default - the user wants the
+            # bare PNG subject, and an unvetted full-scene card can smuggle a
+            # person back in. Opt in only if rembg is unavailable.
             src = ensure_png(entry, deadline)
             if src is not None:
                 ready = prepare_card(src, int(1080 * CARD_W["lg"]), out)
