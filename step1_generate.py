@@ -183,13 +183,20 @@ def build_user_prompt(topic: str) -> str:
         "scenes that match the script's flow, in story order - one per beat "
         "movement.\n"
         "2. Each term must be concrete stock-footage material - things a "
-        "camera can film: \"glass shattering\", \"dark forest\", \"crowd "
-        "walking\", \"mirror reflection\", \"storm clouds\".\n"
+        "camera can film WITHOUT a person in frame: \"glass shattering\", "
+        "\"dark forest\", \"storm clouds\", \"rain on window\", \"old \"\n"
+        "clock gears\".\n"
         "3. Query 1 must visually match the hook; the last query must match "
         "the closing line. Build a visual progression (for example: "
         "destruction, then isolation, then discipline, then rebirth). "
         "Abstract words like \"psychology\" or \"memory\" are useless here - "
         "pick filmable imagery.\n"
+        "4. NO PEOPLE, ever: never use terms about humans or body parts "
+        "(woman, man, girl, person, face, hands, eyes, crowd, silhouette, "
+        "portrait). Choose places, objects, textures, weather and light - "
+        "for example \"rain on glass\", \"neon alley night\", \"smoke "
+        "curling\", \"empty hallway\". Shots of people are banned from "
+        "this channel.\n"
     )
 
 
@@ -312,7 +319,7 @@ Return ONLY valid JSON, no markdown fences, no preamble, matching this schema:
       "text": "the exact sentence to be spoken",
       "emotion": "one of: intense | serious | curious | playful | urgent | calm | triumphant",
       "emphasis_words": ["word_or_phrase_1", "word_or_phrase_2"],
-      "visual_concept": "2-4 word abstract description of what should be shown on screen for THIS beat (not literal objects mentioned in the sentence - the underlying feeling or idea)",
+      "visual_concept": "2-4 word abstract description of what should be shown on screen for THIS beat (not literal objects mentioned in the sentence - the underlying feeling or idea). Atmosphere, objects and textures ONLY - never people, faces or body parts",
       "pause_after_ms": 0
     }
   ],

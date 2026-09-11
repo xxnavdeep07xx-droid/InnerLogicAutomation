@@ -51,19 +51,31 @@ TICKS_PER_SECOND = 10_000_000
 BEAT_GAP_MS = 120                    # natural micro-pause between beats
 MAX_PAUSE_MS = 800
 
+# v2.1: TTS_PROSODY=unified (default) synthesizes the WHOLE script in ONE
+# edge-tts call -> one continuous prosodic arc. The old per-beat calls each
+# restarted intonation with big pitch/rate deltas (+22Hz playful vs -8Hz
+# serious), which made the narrator sound like a DIFFERENT PERSON every few
+# seconds. Unified mode maps exact WordBoundary timestamps back onto beats.
+UNIFIED_DOT_PAUSE_MS = 250           # pause_after_ms >= this -> sentence break
+UNIFIED_COMMA_PAUSE_MS = 120         # ... >= this -> comma break
+UNIFIED_MIN_COVERAGE = 0.85          # word-match coverage; below -> per-beat
+
 EMOTIONS = ("intense", "serious", "curious", "playful", "urgent",
             "calm", "triumphant")
 
 # Per-emotion delivery. rate/pitch deltas are ADDED to the user's base
-# EDGE_TTS_RATE / EDGE_TTS_PITCH (e.g. base "+10%" + intense "+12%" -> "+22%").
+# EDGE_TTS_RATE / EDGE_TTS_PITCH. v2.1: these are deliberately SUBTLE now -
+# the original ±22Hz pitch / ±16% rate swings made each beat sound like a
+# different voice artist. Humans shift pace slightly with emotion; they do
+# not change pitch class every sentence.
 EMOTION_PROSODY = {
-    "intense":    {"rate": "+12%", "pitch": "+12Hz"},
-    "serious":    {"rate": "-5%",  "pitch": "-8Hz"},
-    "curious":    {"rate": "+3%",  "pitch": "+14Hz"},
-    "playful":    {"rate": "+8%",  "pitch": "+22Hz"},
-    "urgent":     {"rate": "+16%", "pitch": "+6Hz"},
-    "calm":       {"rate": "-10%", "pitch": "-4Hz"},
-    "triumphant": {"rate": "+5%",  "pitch": "+16Hz"},
+    "intense":    {"rate": "+3%",  "pitch": "+2Hz"},
+    "serious":    {"rate": "-2%",  "pitch": "-2Hz"},
+    "curious":    {"rate": "+1%",  "pitch": "+3Hz"},
+    "playful":    {"rate": "+2%",  "pitch": "+3Hz"},
+    "urgent":     {"rate": "+4%",  "pitch": "+1Hz"},
+    "calm":       {"rate": "-3%",  "pitch": "-1Hz"},
+    "triumphant": {"rate": "+2%",  "pitch": "+2Hz"},
 }
 
 # ElevenLabs voice_settings per emotion (0..1 scale).
@@ -177,11 +189,30 @@ def _wav_to_mp3(wav_path: Path, mp3_path: Path) -> None:
         raise RuntimeError(f"ffmpeg mp3 encode failed: {proc.stderr.strip()[:120]}")
 
 
+def _rms_match(pcm: np.ndarray, target_rms: float) -> np.ndarray:
+    """Loudness-match one beat's PCM to the target RMS (peak-limited).
+    Per-beat TTS loudness jumps are another 'different voice artist' cue."""
+    rms = float(np.sqrt(np.mean(pcm ** 2))) if pcm.size else 0.0
+    if rms < 1e-6:
+        return pcm
+    gain = min(target_rms / rms, 3.0)             # never boost silence > 3x
+    out = pcm * gain
+    peak = float(np.abs(out).max())
+    if peak > 0.94:
+        out *= 0.94 / peak
+    return out
+
+
 def _assemble(segments: list[tuple[np.ndarray, int]], total_beats: int,
               out_dir: Path) -> tuple[Path, list[float]]:
     """Concatenate beat PCMs with silence gaps -> (voiceover.mp3, boundary
     list where each entry is the time in SECONDS at which that beat's audio
-    starts on the final timeline)."""
+    starts on the final timeline). Each segment is RMS loudness-matched so
+    the narration level never jumps between beats."""
+    loud = [s for s, _ in segments if s.size]
+    target_rms = float(np.mean([np.sqrt(np.mean(s ** 2)) for s in loud])) \
+        if loud else 0.0
+    segments = [(_rms_match(s, target_rms), p) for s, p in segments]
     gap = np.zeros(int(SAMPLE_RATE * BEAT_GAP_MS / 1000), dtype=np.float32)
     parts: list[np.ndarray] = []
     boundaries: list[float] = []
@@ -315,9 +346,103 @@ def _run_async(coro):
         return pool.submit(asyncio.run, coro).result()
 
 
+def _join_script_text(beats: list[dict]) -> str:
+    """Join beat texts into ONE flowing paragraph. Deliberate pauses become
+    punctuation (Edge pauses ~400ms at '. ' and ~200ms at ', '), so pacing
+    survives the single-call synthesis."""
+    pieces: list[str] = []
+    for b in beats:
+        t = b["text"].strip()
+        if not t:
+            continue
+        trailing = t[-1] if t[-1] in ".,!?…;:" else ""
+        pause = b.get("pause_after_ms", 0)
+        if pause >= UNIFIED_DOT_PAUSE_MS and trailing not in ".!?…":
+            t += "."
+        elif UNIFIED_COMMA_PAUSE_MS <= pause < UNIFIED_DOT_PAUSE_MS \
+                and trailing == "":
+            t += ","
+        pieces.append(t)
+    return " ".join(pieces)
+
+
+async def _voiceover_edge_unified(beats: list[dict], out_dir: Path, voice: str,
+                                  base_rate: str, base_pitch: str) -> tuple:
+    """ONE edge-tts call for the whole script -> one continuous prosodic
+    arc (no narrator changes between beats). Exact WordBoundary timestamps
+    are mapped back onto their beats by word matching; beat starts/ends and
+    caption timings downstream stay frame-accurate."""
+    text = _join_script_text(beats)
+    if not text:
+        raise RuntimeError("unified prosody: empty script")
+    f = out_dir / "_voiceover_unified.mp3"
+    chunks = await _edge_synthesize_beat(text, voice, base_rate, base_pitch, f)
+
+    # walk the WordBoundary chunks against every beat's words in order
+    word_lists = [b["text"].split() for b in beats]
+    words: list[dict] = []
+    bi, wi, matched = 0, 0, 0
+    for chunk in chunks:
+        token = str(chunk.get("text", "")).strip()
+        if not token:
+            continue
+        norm_tok = re.sub(r"[^a-z0-9']", "", token.lower())
+        hit = None
+        for b_scan in range(bi, len(beats)):
+            wl = word_lists[b_scan]
+            start_j = wi if b_scan == bi else 0
+            for j in range(start_j, len(wl)):
+                if re.sub(r"[^a-z0-9']", "", wl[j].lower()) == norm_tok:
+                    hit = (b_scan, j)
+                    break
+            if hit:
+                break
+        if hit:
+            bi, wi = hit[0], hit[1] + 1
+            token = word_lists[bi][hit[1]]      # punctuation restored
+            matched += 1
+        # unmatched chunk: attribute to the current beat at the cursor
+        b_idx = beats[min(bi, len(beats) - 1)]["index"]
+        off = int(chunk.get("offset", 0)) / TICKS_PER_SECOND
+        dur = int(chunk.get("duration", 0)) / TICKS_PER_SECOND
+        words.append({"word": token, "start": round(off, 3),
+                      "end": round(off + dur, 3), "beat": b_idx})
+
+    coverage = matched / max(1, len(chunks))
+    spoken = {w["beat"] for w in words}
+    missing = [b["index"] for b in beats if b["index"] not in spoken]
+    if coverage < UNIFIED_MIN_COVERAGE or missing:
+        f.unlink(missing_ok=True)
+        raise RuntimeError(
+            f"unified prosody coverage too low ({matched}/{len(chunks)} "
+            f"chunks, beats without words: {missing[:3]}) - using per-beat")
+
+    # finalize voiceover.mp3 exactly like the per-beat path (decode -> peak
+    # limit -> wav -> mp3) so downstream steps see an identical contract
+    pcm = _decode_to_pcm(f)
+    f.unlink(missing_ok=True)
+    audio_path = out_dir / "voiceover.mp3"
+    wav_tmp = out_dir / "_voiceover_assembled.wav"
+    _write_wav_pcm(pcm, wav_tmp)
+    _wav_to_mp3(wav_tmp, audio_path)
+    wav_tmp.unlink(missing_ok=True)
+
+    lengths = [0.0] * len(beats)            # word timings carry the truth here
+    print(f"      tts: unified prosody (ONE call, {len(chunks)} word "
+          f"boundaries, {coverage:.0%} matched) - no narrator shifts")
+    return audio_path, words, lengths
+
+
 def _run_edge(beats, out_dir, voice, base_rate, base_pitch):
     if sys.platform == "win32":
         asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    mode = (os.getenv("TTS_PROSODY", "unified") or "unified").strip().lower()
+    if mode in ("unified", "single", "one"):
+        try:
+            return _run_async(_voiceover_edge_unified(
+                beats, out_dir, voice, base_rate, base_pitch))
+        except Exception as exc:
+            print(f"      tts: unified prosody unavailable ({str(exc)[:90]})")
     return _run_async(_voiceover_edge(beats, out_dir, voice, base_rate, base_pitch))
 
 
@@ -441,22 +566,38 @@ def generate_voiceover(script_beats, backend: str = "edge",
         audio_path, words, lengths = _run_edge(
             beats, out_dir, voice, base_rate, base_pitch)
 
-    # beat start/end on the final timeline
+    # beat start/end on the final timeline (beats with no matched words
+    # inherit the previous beat's end so the timeline never folds back to 0)
     starts: list[float | None] = []
+    last_end = 0.0
     for w in words:
         b = w.get("beat", 0)
         if len(starts) <= b:
             starts.extend([None] * (b + 1 - len(starts)))
         if starts[b] is None:
-            starts[b] = w["start"]
+            starts[b] = max(w["start"], last_end)
+        last_end = max(last_end, w["end"])
     for beat in beats:
         i = beat["index"]
+        if i < len(starts) and starts[i] is None:
+            starts[i] = starts[i - 1] if i > 0 and starts[i - 1] is not None \
+                else last_end
         beat["start"] = round(float(starts[i]) if i < len(starts)
                               and starts[i] is not None else 0.0, 3)
         nxt = starts[i + 1] if i + 1 < len(starts) and starts[i + 1] is not None \
             else None
-        beat["end"] = round(min(nxt, beat["start"] + lengths[i])
-                            if nxt is not None else beat["start"] + lengths[i], 3)
+        if i < len(lengths) and lengths[i] > 0:
+            beat["end"] = round(min(nxt, beat["start"] + lengths[i])
+                                if nxt is not None
+                                else beat["start"] + lengths[i], 3)
+        else:
+            # unified mode: beat end = its last word's end (word timings
+            # carry the truth; the pause after belongs to the next beat)
+            own = [w["end"] for w in words if w.get("beat") == i]
+            end_c = max(own) if own else (nxt if nxt is not None
+                                          else beat["start"])
+            beat["end"] = round(min(nxt, end_c) if nxt is not None
+                                else end_c, 3)
     return {"audio_path": audio_path, "words": words, "beats": beats,
             "backend": backend}
 

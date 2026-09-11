@@ -16,6 +16,11 @@ numpy>=1.26.0                        # music_gen ambient synthesizer
 # Step 2.5: dynamic Pexels backgrounds
 requests>=2.31.0
 
+# Step 2.7 (v2.1): transparent PNG cutouts for the art-card layer
+# rembg = U2Net salient-object segmentation, pre-trained (no training needed).
+# [cpu] pulls onnxruntime; the 4.7 MB u2netp model is cached by the workflow.
+rembg[cpu]>=2.0.57
+
 # Step 3: auto-publish
 google-api-python-client>=2.100.0   # YouTube Data API v3
 google-auth>=2.23.0

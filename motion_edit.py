@@ -76,8 +76,14 @@ WHIP_MAX_BLUR = 42               # px of horizontal motion blur at the mid
 PUNCH_KICK = 0.08                # +8% scale kick on the punch transition
 
 CARD_W = {"lg": 0.40, "md": 0.30, "sm": 0.22}
+CARD_W_VAR = {"lg": 0.12, "md": 0.15, "sm": 0.15}   # ± width variance per slot
 CARD_STAGGER = (0.12, 0.95, 1.70)   # entrance delays: main / secondary / micro
 CARD_DRIFT = {"lg": 9.0, "md": 6.5, "sm": 4.5}   # px of parallax drift
+CARD_BOB = {"lg": 8.0, "md": 6.0, "sm": 4.0}     # px of continuous float
+CARD_BREATH = 0.015                 # ±1.5% slow scale breathing
+CARD_BREATH_HZ = 0.33
+CARD_BOB_HZ = 0.45
+CARD_SLIDE = 70.0                   # px secondary cards slide in from their side
 CARD_FADE_IN, CARD_FADE_OUT = 0.12, 0.18
 
 EMOTION_GROUPS = {               # for dip-to-black section changes
@@ -211,6 +217,12 @@ def plan_scenes(beats: list[dict], words: list[dict],
         scenes[i].beat_indices += scenes[i + 1].beat_indices
         scenes.pop(i + 1)
 
+    # scenes must be CONTIGUOUS: beat-end based closes can leave small pause
+    # gaps, and the background walker snaps any in-gap time to the LAST scene
+    # (visible as an outro flash). Extend every scene to the next start.
+    for prev_sc, nxt_sc in zip(scenes, scenes[1:]):
+        prev_sc.end = max(prev_sc.end, nxt_sc.start)
+
     # roles, transitions, whip direction
     turn_used = False
     prev_group = None
@@ -253,6 +265,22 @@ def boom_times(scenes: list[Scene]) -> list[float]:
     """Cut timestamps that get a sub-boom under the transition."""
     return [sc.start for sc in scenes
             if sc.transition in ("punch", "dip") and sc.start > 0.3]
+
+
+def sfx_events(scenes: list[Scene]) -> list[dict]:
+    """Per-transition SFX events for sfx_gen.build_layer (v2.1).
+
+    The user complaint: the SAME whoosh on EVERY cut was irritating. Now
+    whips get the whoosh (varied voices, panned along the whip direction),
+    punches and dips get the sub-boom instead - each cut gets the sound
+    that suits it."""
+    events: list[dict] = []
+    for sc in scenes:
+        if sc.transition == "none" or sc.start <= 0.0:
+            continue
+        events.append({"t": sc.start, "kind": sc.transition,
+                       "dir": int(sc.whip_dir or 1)})
+    return events
 
 
 # ---------------------------------------------------------------------------
@@ -543,33 +571,53 @@ def _write_transition_track(seg_paths: list[Path], scenes: list[Scene],
 # ---------------------------------------------------------------------------
 
 def _card_variants(beat_cards: dict[int, Path], run_folder: Path) -> dict:
-    """lg cards are prepared by art_library; md/sm variants are derived from
-    the same original PNG on demand (cached in the run folder)."""
+    """md/sm variants come from the SAME asset as the lg card so every size
+    of one entry shares its silhouette. Transparent cutouts are re-prepared
+    per size (each with its own tilt); framed cards fall back to the old
+    rounded-card prep."""
     import art_library as art
     variants: dict[int, dict[str, Path]] = {}
     prep_dir = run_folder / "cards"
     for idx, lg_path in beat_cards.items():
         entry_id = lg_path.stem.replace("_lg", "")
+        cutout = art.CACHE_DIR / f"{entry_id}_cut.png"
         original = art.CACHE_DIR / f"{entry_id}.png"
         sizes = {"lg": lg_path}
         for size in ("md", "sm"):
             out = prep_dir / f"{entry_id}_{size}.png"
             if out.is_file() and out.stat().st_size > 5_000:
                 sizes[size] = out
+            elif cutout.is_file():
+                ready = art.prepare_cutout(
+                    cutout, int(TARGET_W * CARD_W[size]), out,
+                    tilt_deg=art._tilt_for(entry_id, size))
+                if ready:
+                    sizes[size] = ready
             elif original.is_file():
-                ready = art.prepare_card(original, int(TARGET_W * CARD_W[size]),
-                                         out)
+                ready = art.prepare_card(original,
+                                         int(TARGET_W * CARD_W[size]), out)
                 if ready:
                     sizes[size] = ready
         variants[idx] = sizes
     return variants
 
 
-def _placement(size_key: str, side: str, zone: str, args) -> tuple[int, int, int, int]:
+def _slot_width(size_key: str, beat_idx: int, slot_i: int) -> int:
+    """Seeded per-slot width so cards stop being all the same size."""
+    seed = int(hashlib.sha1(
+        f"{beat_idx}:{size_key}:{slot_i}".encode()).hexdigest()[:6], 16)
+    var = CARD_W_VAR[size_key]
+    span = 1.0 + var * ((seed % 200) / 100.0 - 1.0)      # 1-var .. 1+var
+    return int(TARGET_W * CARD_W[size_key] * span)
+
+
+def _placement(size_key: str, side: str, zone: str, args,
+               target_w: int, aspect: float) -> tuple[int, int, int, int]:
     """Safe-zone placement resolver for one card.
 
     Returns (x, y, w, h). Zones clear the platform UI (top bar, right icon
-    rail, bottom clearance) AND the caption band around caption_y_pct."""
+    rail, bottom clearance) AND the caption band around caption_y_pct.
+    `aspect` is the ACTUAL asset aspect (cutout silhouettes vary wildly)."""
     caption_anchor = TARGET_H * caption_y_pct(args)
     floor = TARGET_H * (1.0 - bottom_clearance_pct(args))
     band_half = int(TARGET_H * 0.095)                 # ~2 caption lines
@@ -577,19 +625,19 @@ def _placement(size_key: str, side: str, zone: str, args) -> tuple[int, int, int
     bot_y0, bot_y1 = caption_anchor + band_half, int(floor)
     y0, y1 = (top_y0, top_y1) if zone == "top" else (bot_y0, bot_y1)
 
-    w = int(TARGET_W * CARD_W[size_key])
-    h = int(w / 0.78)                                  # card aspect (art_library)
-    if h > y1 - y0:                                    # shrink to the zone
+    w = max(40, int(target_w))
+    h = int(w / max(0.2, aspect))
+    if h > y1 - y0:                                   # shrink to the zone
         h = y1 - y0 - 8
-        w = int(h * 0.78)
+        w = int(h * max(0.2, aspect))
     if w <= 40 or h <= 40:
-        return (0, 0, 0, 0)                            # zone collapsed - skip
+        return (0, 0, 0, 0)                           # zone collapsed - skip
 
     if side == "right":
-        x = int(TARGET_W * 0.80) - w                   # clear the icon rail
+        x = int(TARGET_W * 0.80) - w                  # clear the icon rail
     elif side == "left":
         x = int(TARGET_W * 0.075)
-    else:                                              # center
+    else:                                             # center
         x = (TARGET_W - w) // 2
     y = y0 + max(0, ((y1 - y0) - h) // 2)
     return (x, y, w, h)
@@ -598,18 +646,18 @@ def _placement(size_key: str, side: str, zone: str, args) -> tuple[int, int, int
 def build_card_layers(scenes: list[Scene], beat_cards: dict[int, Path],
                       run_folder: Path, args) -> list:
     """The multi-asset layer: for every scene, up to three art cards
-    (main lg + secondary md + micro sm) on screen together, staggered,
-    each with a spring pop-in, slow parallax drift and a fade-out."""
+    (main lg + secondary md + micro sm) on screen together - each with its
+    own size, silhouette, tilt and motion: spring pop-in, secondary cards
+    SLIDE in from their side, then everything keeps floating (bob + slow
+    scale breathing + parallax drift) until the scene releases them."""
     if not beat_cards:
         return []
     variants = _card_variants(beat_cards, run_folder)
     layers: list = []
     n_cards = 0
     for i, sc in enumerate(scenes):
-        if sc.transition == "none":
+        if sc.transition == "none" or sc.role == "hook":
             slots = []                                 # hook scene: no cards
-        elif sc.role == "hook":
-            slots = []
         else:
             slots = []
             main_idx = next((b for b in sc.beat_indices if b in variants), None)
@@ -618,31 +666,36 @@ def build_card_layers(scenes: list[Scene], beat_cards: dict[int, Path],
                 # main card ALWAYS takes the tall top zone (the bottom band
                 # between captions and platform UI is only ~160 px - it can
                 # only host a micro accent, never a main/secondary card)
-                slots.append(("lg", main_idx, side, "top", CARD_STAGGER[0]))
+                slots.append(("lg", main_idx, side, "top", CARD_STAGGER[0], "pop"))
                 other = [b for b in sc.beat_indices
                          if b in variants and b != main_idx]
                 if other and sc.duration >= 2.8:
                     # secondary on the OPPOSITE side, same tall top zone
                     sec_side = "left" if side == "right" else "right"
                     slots.append(("md", other[0], sec_side, "top",
-                                  CARD_STAGGER[1]))
+                                  CARD_STAGGER[1], "slide"))
                 elif sc.duration >= 3.4 and i % 3 == 0:
                     # micro accent: same art, small, bottom-corner
                     mic_side = "left" if side == "right" else "right"
                     slots.append(("sm", main_idx, mic_side, "bottom",
-                                  CARD_STAGGER[2]))
+                                  CARD_STAGGER[2], "rise"))
 
-        for j, (size_key, beat_idx, side, zone, delay) in enumerate(slots):
+        for j, (size_key, beat_idx, side, zone, delay, entrance) in \
+                enumerate(slots):
             path = variants[beat_idx].get(size_key)
             if path is None:
                 continue
-            x, y, w, h = _placement(size_key, side, zone, args)
+            img_w, img_h = PILImage.open(str(path)).size
+            aspect = img_w / max(1, img_h)
+            target_w = _slot_width(size_key, beat_idx, j)
+            x, y, w, h = _placement(size_key, side, zone, args,
+                                    target_w, aspect)
             if w <= 0:
                 continue
             card = ImageClip(str(path))
-            # scale the prepared card (incl. shadow padding) to the slot width
+            # scale the prepared asset (incl. glow/shadow padding) to slot width
             native_w = card.size[0]
-            fit = (w + int(w * 0.28)) / native_w       # shadow padding factor
+            fit = (w + int(w * 0.28)) / native_w       # padding factor
             card = card.resized(fit)
             start = sc.start + delay
             dur = max(0.6, sc.end - start - 0.05)
@@ -653,17 +706,36 @@ def build_card_layers(scenes: list[Scene], beat_cards: dict[int, Path],
             cx = base_x + card.size[0] / 2
             cy = base_y + card.size[1] / 2
             amp = CARD_DRIFT[size_key]
-            phase = i * 1.7 + j
+            bob = CARD_BOB[size_key]
+            phase = i * 1.7 + j * 2.3
+            slide_dir = (1 if side == "left" else -1) if entrance == "slide" \
+                else 0
+            rise_px = 46 if entrance == "rise" else 0
 
             def pos(t, _cx=cx, _cy=cy, _w=card.size[0], _h=card.size[1],
-                    _amp=amp, _ph=phase):
+                    _amp=amp, _bob=bob, _ph=phase, _dir=slide_dir,
+                    _rise=rise_px):
                 s = spring_scale(t)
-                return (_cx - _w * s / 2 + _amp * math.sin(0.9 * t + _ph),
-                        _cy - _h * s / 2 + _amp * 0.6 * math.sin(0.7 * t + _ph + 1.1))
+                # entrance offsets: slide from the side / rise from below
+                slide = (1.0 - min(1.0, t / 0.45)) * _dir * CARD_SLIDE \
+                    if _dir else 0.0
+                rise = (1.0 - _smooth(min(1.0, t / 0.5))) * _rise if _rise else 0.0
+                return (
+                    _cx - _w * s / 2 + slide
+                    + _amp * math.sin(0.9 * t + _ph),
+                    _cy - _h * s / 2 + rise
+                    + _bob * math.sin(2 * math.pi * CARD_BOB_HZ * t + _ph)
+                    + _amp * 0.6 * math.sin(0.7 * t + _ph + 1.1),
+                )
+
+            def breathe(t, _ph=phase):
+                return spring_scale(t) * (
+                    1.0 + CARD_BREATH
+                    * math.sin(2 * math.pi * CARD_BREATH_HZ * t + _ph))
 
             card = (card.with_start(start)
                         .with_duration(dur)
-                        .with_effects([vfx.Resize(spring_scale),
+                        .with_effects([vfx.Resize(breathe),
                                        vfx.CrossFadeIn(CARD_FADE_IN),
                                        vfx.CrossFadeOut(CARD_FADE_OUT)])
                         .with_position(pos))

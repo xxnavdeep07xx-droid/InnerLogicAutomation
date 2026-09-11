@@ -52,8 +52,9 @@ REUSE_FILE = ART_DIR / "reuse_log.json"
 # --- style lock ----------------------------------------------------------
 STYLE_SUFFIX = (", dark surreal editorial illustration, deep violet and "
                 "indigo palette, warm amber rim light highlights, grainy "
-                "film texture, dramatic chiaroscuro lighting, minimal "
-                "composition, cinematic mood, no text, no words, no watermark")
+                "film texture, dramatic chiaroscuro lighting, ONE isolated "
+                "subject centered on a plain dark empty background, minimal "
+                "composition, no environment, no text, no words, no watermark")
 
 POLLINATIONS_URL = "https://image.pollinations.ai/prompt/{prompt}"
 POLLINATIONS_MODELS = ["flux", "turbo"]
@@ -412,6 +413,153 @@ def prepare_card(src: Path, width_px: int, out_path: Path,
         return None
 
 
+# ---------------------------------------------------------------------------
+# AI cutout: rembg (U2Net salient-object segmentation, pre-trained - no
+# training required) turns each illustration into a TRANSPARENT PNG so the
+# compositor can float the actual subject (a hand, a mask, a chess piece)
+# over the video - no background box. u2netp is the 4.7 MB variant chosen
+# so CI stays fast; the model file is cached by the workflow.
+# ---------------------------------------------------------------------------
+
+CUTOUT_MODEL = (os.getenv("ART_CUTOUT_MODEL", "u2netp") or "u2netp").strip()
+CUTOUT_MIN_COVERAGE = 0.03          # alpha must cover >= 3% (a real subject)
+CUTOUT_MAX_COVERAGE = 0.80          # ... but < 80% (not the whole frame)
+_SESSION = None
+
+
+def _rembg_session():
+    """Lazy rembg session (model load is ~1-2 s; reused for all entries)."""
+    global _SESSION
+    if _SESSION is None:
+        from rembg import new_session
+        _SESSION = new_session(CUTOUT_MODEL)
+    return _SESSION
+
+
+def ensure_cutout(entry: dict, deadline: float) -> Path | None:
+    """Transparent-background PNG for a library entry (cached per entry).
+
+    Falls back to None on any failure - callers then use the framed card,
+    so a missing model can never break a render."""
+    cut_path = CACHE_DIR / f"{entry['id']}_cut.png"
+    if cut_path.is_file() and cut_path.stat().st_size > 10 * 1024:
+        return cut_path
+    src = ensure_png(entry, deadline)
+    if src is None:
+        return None
+    try:
+        import time as _t
+        t0 = _t.time()
+        from PIL import Image
+        from rembg import remove
+        img = Image.open(src).convert("RGBA")
+        cut = remove(img, session=_rembg_session())
+        alpha = cut.getchannel("A")
+        hist = alpha.histogram()
+        solid = sum(hist[200:])                      # clearly-opaque pixels
+        cov = solid / float(alpha.size[0] * alpha.size[1])
+        if cov < CUTOUT_MIN_COVERAGE or cov > CUTOUT_MAX_COVERAGE:
+            print(f"      art cutout: '{entry['id']}' rejected "
+                  f"(alpha coverage {cov:.0%})")
+            return None
+        cut.save(cut_path, "PNG", optimize=True)
+        print(f"      art cutout: '{entry['id']}' -> transparent PNG "
+              f"({cov:.0%} subject, {(_t.time() - t0):.1f}s, {CUTOUT_MODEL})")
+        return cut_path
+    except Exception as exc:
+        print(f"      art cutout: '{entry['id']}' failed ({str(exc)[:70]})")
+        return None
+
+
+# ---------------------------------------------------------------------------
+# Cutout prep: trim to the subject, amber edge glow + baked drop shadow,
+# optional tilt. NO background box, NO rounded frame - the silhouette IS
+# the shape, so every asset is a different size and shape by nature.
+# ---------------------------------------------------------------------------
+
+def prepare_cutout(src: Path, width_px: int, out_path: Path,
+                   tilt_deg: float = 0.0) -> Path | None:
+    """Turn a transparent cutout into a finished RGBA overlay:
+    trimmed silhouette + amber rim glow + soft drop shadow (+ tilt).
+    Returns out_path; the compositor just pastes this image."""
+    try:
+        from PIL import Image, ImageFilter
+
+        img = Image.open(src).convert("RGBA")
+        alpha = img.getchannel("A")
+        bbox = alpha.point(lambda a: 255 if a >= 8 else 0).getbbox()
+        if not bbox:
+            return None
+        img = img.crop(bbox)
+
+        # scale the subject to the requested width. v2.1: ADAPTIVE lift -
+        # noir art is dark-on-dark, so measure the subject's mean luminance
+        # and lift it to a readable level over a dark video (per-asset:
+        # near-black art gets a big lift, bright art almost none).
+        w0, h0 = img.size
+        if w0 < 8 or h0 < 8:
+            return None
+        scale = width_px / float(w0)
+        img = img.resize((width_px, max(8, int(h0 * scale))), Image.LANCZOS)
+        try:
+            import numpy as _np
+            a_arr = _np.asarray(img.getchannel("A"), dtype=_np.float32)
+            mask = a_arr >= 8
+            rgb_arr = _np.asarray(img.convert("RGB"), dtype=_np.float32)
+            if mask.any():
+                lum = (0.299 * rgb_arr[..., 0] + 0.587 * rgb_arr[..., 1]
+                       + 0.114 * rgb_arr[..., 2])[mask]
+                mean_lum = float(lum.mean())
+                lift = min(2.2, max(1.0, 98.0 / max(mean_lum, 24.0)))
+                rgb_arr = _np.clip(rgb_arr * lift, 0, 255)
+                print(f"      cutout prep: luminance {mean_lum:.0f} -> "
+                      f"x{lift:.2f} lift")
+            rgba = Image.fromarray(
+                _np.dstack([rgb_arr.astype("uint8"),
+                            _np.asarray(img.getchannel("A"), dtype="uint8")]),
+                "RGBA")
+            img = rgba
+        except Exception:
+            pass
+
+        pad = max(16, width_px // 7)               # room for glow/shadow/tilt
+        canvas_w = img.size[0] + 2 * pad
+        canvas_h = img.size[1] + 2 * pad + pad // 2
+
+        a = img.getchannel("A")
+        glow = a.filter(ImageFilter.MaxFilter(9))            # dilate
+        glow = glow.filter(ImageFilter.GaussianBlur(5))
+        glow_layer = Image.new("RGBA", (canvas_w, canvas_h), (0, 0, 0, 0))
+        amber = Image.new("RGBA", img.size, (245, 180, 60, 150))
+        glow_layer.paste(amber, (pad, pad), glow)
+
+        shadow = a.filter(ImageFilter.GaussianBlur(max(4, width_px // 22)))
+        shadow_layer = Image.new("RGBA", (canvas_w, canvas_h), (0, 0, 0, 0))
+        black = Image.new("RGBA", img.size, (0, 0, 0, 120))
+        shadow_layer.paste(black, (pad + pad // 3, pad + pad // 2), shadow)
+
+        canvas = Image.alpha_composite(shadow_layer, glow_layer)
+        canvas.paste(img, (pad, pad), img)
+
+        if abs(tilt_deg) >= 0.5:
+            canvas = canvas.rotate(tilt_deg, resample=Image.BICUBIC,
+                                   expand=True)
+
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        canvas.save(out_path, "PNG", optimize=True)
+        return out_path
+    except Exception as exc:
+        print(f"      cutout prep failed ({str(exc)[:60]})")
+        return None
+
+
+def _tilt_for(entry_id: str, variant: str) -> float:
+    """Deterministic per-(entry, variant) tilt so cards stop looking uniform."""
+    import hashlib
+    seed = int(hashlib.sha1(f"{entry_id}:{variant}".encode()).hexdigest()[:6], 16)
+    return float(seed % 13) - 6.0                   # -6..+6 degrees
+
+
 def ensure_cards_for_beats(beats: list[dict], run_folder: Path) -> dict[int, Path]:
     """Public API for motion_edit.py:
     beat index -> prepared RGBA card PNG (or absent if nothing matched /
@@ -423,16 +571,24 @@ def ensure_cards_for_beats(beats: list[dict], run_folder: Path) -> dict[int, Pat
     deadline = time.time() + GLOBAL_BUDGET
     cards: dict[int, Path] = {}
     used_ids: list[str] = []
+    n_cut, n_framed = 0, 0
     prep_dir = run_folder / "cards"
     for idx in sorted(chosen):
         entry = chosen[idx]
-        src = ensure_png(entry, deadline)
-        if src is None:
-            continue
-        # main card width in px resolved here (lg) - motion_edit may also
-        # request md/sm variants of the SAME prepared image for layering
         out = prep_dir / f"{entry['id']}_lg.png"
-        ready = prepare_card(src, int(1080 * CARD_W["lg"]), out)
+        ready = None
+        cut = ensure_cutout(entry, deadline)          # transparent subject
+        if cut is not None:
+            ready = prepare_cutout(cut, int(1080 * CARD_W["lg"]), out,
+                                   tilt_deg=_tilt_for(entry["id"], "lg"))
+            if ready:
+                n_cut += 1
+        if ready is None:                             # framed-card fallback
+            src = ensure_png(entry, deadline)
+            if src is not None:
+                ready = prepare_card(src, int(1080 * CARD_W["lg"]), out)
+                if ready:
+                    n_framed += 1
         if ready:
             cards[idx] = ready
             used_ids.append(entry["id"])
@@ -442,5 +598,6 @@ def ensure_cards_for_beats(beats: list[dict], run_folder: Path) -> dict[int, Pat
             break
     commit_reuse(run_key := run_folder.name, used_ids)
     print(f"      art cards: {len(cards)}/{len(chosen)} ready "
-          f"({', '.join(e['id'] for e in chosen.values() if e['id'] in used_ids) or 'none'})")
+          f"({n_cut} transparent cutouts, {n_framed} framed fallback) - "
+          f"{', '.join(e['id'] for e in chosen.values() if e['id'] in used_ids) or 'none'}")
     return cards

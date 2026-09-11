@@ -1523,7 +1523,7 @@ def main() -> int:
     else:
         print("      running without a music bed")
 
-    # SFX layer: whoosh into every cut + ding under emphasized words ------------
+    # SFX layer: whip whooshes (varied, panned) + punch/dip booms + dings ------
     sfx_on = False
     if mode == "beats":
         try:
@@ -1533,16 +1533,23 @@ def main() -> int:
                 sfx_level = args.sfx_level if args.sfx_level is not None \
                     else float(os.getenv("SFX_LEVEL", "1.0") or 1.0)
                 emphasis_times = [w["start"] for w in words if w.get("emphasis")]
-                boom = (motion_edit.boom_times(scenes)
-                        if motion_on and scenes is not None else None)
+                sfx_events = (motion_edit.sfx_events(scenes)
+                              if motion_on and scenes is not None else None)
                 sfx_path = sfx_gen.build_layer(scene_cuts, emphasis_times, duration,
                                                run_folder / "_sfx_layer.wav",
-                                               level=sfx_level, boom_times=boom)
+                                               level=sfx_level,
+                                               events=sfx_events)
                 if sfx_path:
                     sfx_clip = AudioFileClip(str(sfx_path)).subclipped(0, duration)
                     audio_layers.append(sfx_clip)
-                    print(f"      sfx: on ({len(scene_cuts)} cut whooshes, "
-                          f"{len(emphasis_times)} emphasis dings @ {sfx_level:.1f}x)")
+                    if sfx_events:
+                        kinds = [e["kind"] for e in sfx_events]
+                        print(f"      sfx: on ({kinds.count('whip')} panned "
+                              f"whip whooshes, {kinds.count('punch') + kinds.count('dip')} "
+                              f"booms, {len(emphasis_times)} dings @ {sfx_level:.1f}x)")
+                    else:
+                        print(f"      sfx: on ({len(scene_cuts)} cut whooshes, "
+                              f"{len(emphasis_times)} emphasis dings @ {sfx_level:.1f}x)")
                 else:
                     sfx_on = False
         except Exception as exc:

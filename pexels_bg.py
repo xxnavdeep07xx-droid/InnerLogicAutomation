@@ -39,6 +39,64 @@ PEXELS_SEARCH_URL = "https://api.pexels.com/videos/search"
 MIN_CLIP_HEIGHT = 1080                    # reject anything below 1080-class
 DL_TIMEOUT = 120                          # seconds per download
 
+# --- no-people filter (v2.1) ------------------------------------------------
+# User feedback: stock clips kept showing a girl/person between transitions.
+# Pexels video URLs contain a descriptive slug (e.g. .../video/a-woman-
+# thinking-4538900/) - a free content signal. Videos whose slug mentions a
+# person are rejected at selection time, and queries are sanitized before
+# searching so people-first terms never reach the API.
+PERSON_SLUG_WORDS = {
+    "woman", "women", "girl", "girls", "lady", "man", "men", "boy",
+    "boys", "person", "people", "guy", "guys", "face", "faces",
+    "child", "kid", "kids", "baby", "human", "humans", "model",
+    "portrait", "selfie", "body", "torso", "hand", "hands", "finger",
+    "fingers", "crowd", "customer", "worker", "employee", "speaker",
+    "interview", "dancer", "singer", "couple", "friends", "family",
+    "teenager", "businessman", "businesswoman", "hair", "makeup",
+}
+
+PHRASE_REWRITES = {          # known people-y queries -> atmospheric equals
+    "mirror reflection dark": "broken mirror glass dark",
+    "crowd walking blur": "city lights bokeh night",
+    "person walking alone fog": "foggy forest path dark",
+    "hand writing notebook closeup": "fountain pen ink paper macro",
+    "marble statue face": "ancient marble statue dark",
+    "human eye closeup macro": "macro water drop dark",
+    "face lit phone screen dark": "phone screen glow dark room",
+    "silhouette shadow wall": "long shadows window light wall",
+    "shadow follow": "long shadow wall sunset",
+}
+
+PERSON_QUERY_WORDS = PERSON_SLUG_WORDS | {
+    "walking", "standing", "sitting", "talking", "thinking", "looking",
+    "staring", "waiting", "running", "dancing", "writing", "reading",
+}
+
+
+def sanitize_query(query: str) -> str:
+    """Strip/rewrite people terms so searches return objects & atmosphere."""
+    q = (query or "").strip().lower()
+    if not q:
+        return q
+    if q in PHRASE_REWRITES:
+        return PHRASE_REWRITES[q]
+    words = [w for w in re.findall(r"[a-z0-9']+", q)
+             if w not in PERSON_QUERY_WORDS]
+    cleaned = " ".join(words)
+    if len(cleaned) < 3:
+        cleaned = "dark abstract texture"
+    return cleaned
+
+
+def _mentions_person(video: dict) -> bool:
+    """True if the video's URL slug says a human is in frame."""
+    url = str(video.get("url") or "").lower()
+    if "/video/" not in url:
+        return False
+    slug = url.split("/video/")[-1].strip("/")
+    tokens = set(re.findall(r"[a-z]+", slug))
+    return bool(tokens & PERSON_SLUG_WORDS)
+
 
 def _slug(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", text.strip().lower()).strip("-")[:40] or "query"
@@ -55,11 +113,12 @@ def _score_file(f: dict) -> tuple:
 
 
 def _pick_video(videos: list[dict], used_ids: set[int]) -> dict | None:
-    """Choose the best unused video: usable portrait file, longest first."""
+    """Choose the best unused video: usable portrait file, longest first.
+    Videos whose URL slug mentions a person are skipped (no-people rule)."""
     scored = []
     for v in videos:
         vid = int(v.get("id") or 0)
-        if vid in used_ids:
+        if vid in used_ids or _mentions_person(v):
             continue
         duration = float(v.get("duration") or 0)
         files = [f for f in v.get("video_files", [])
@@ -115,7 +174,9 @@ def _new_session() -> requests.Session | None:
 
 def search_best_file(session: "requests.Session", query: str,
                      used_ids: set[int]) -> dict | None:
-    """Search Pexels for `query` and return the best unused portrait file."""
+    """Search Pexels for `query` and return the best unused portrait file.
+    The query is sanitized first (no people terms)."""
+    query = sanitize_query(query)
     per_page = int(os.getenv("PEXELS_PER_PAGE", "15") or 15)
     try:
         r = session.get(PEXELS_SEARCH_URL,
