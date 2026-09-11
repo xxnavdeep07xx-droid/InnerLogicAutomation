@@ -81,18 +81,19 @@ def _e(eid, prompt, tags, emotions):
     return {"id": eid, "prompt": prompt, "tags": tags, "emotions": emotions}
 
 
+# v2.1: entries that depict human FIGURES/FACES are banned. The user's #1
+# complaint was "a girl body shown between transitions" - these render as
+# people silhouettes even as illustrations. This blocklist is checked at
+# SELECTION time too, so a stale library.json can never pick them again.
+NO_FIGURE_ENTRIES = {
+    "mirror_split", "puppet_hands", "mask_reveal", "crowd_blur",
+    "smoke_figure", "split_face", "shadow_follow", "weight_shrug",
+}
+
 ENTRIES = [
-    _e("mirror_split", "a man looking at his cracked reflection in a tall mirror, the reflection smiling back differently",
-       ["mirror", "reflection", "self", "identity", "honest"], ["serious", "intense"]),
-    _e("puppet_hands", "marionette puppet strings attached to a person's wrists held by a giant hand above",
-       ["puppet", "control", "strings", "manipulation", "power"], ["serious", "intense"]),
     _e("chess_king", "a lone chess king piece standing on the board edge surrounded by fallen pieces",
        ["chess", "strategy", "power", "game", "move"], ["serious", "calm"]),
-    _e("mask_reveal", "a porcelain mask half removed revealing a shadowed face beneath",
-       ["mask", "hidden", "truth", "reveal", "identity"], ["curious", "intense"]),
-    _e("crowd_blur", "one sharp figure standing still in a blurred rushing crowd",
-       ["crowd", "alone", "different", "society", "stand"], ["serious", "urgent"]),
-    _e("storm_head", "a dark storm cloud swirling inside a glass head silhouette",
+    _e("storm_head", "a dark storm cloud swirling inside a transparent glass head sculpture",
        ["mind", "thought", "storm", "overthink", "anxiety"], ["intense", "serious"]),
     _e("hourglass_ember", "an hourglass where the falling sand turns into glowing embers",
        ["time", "patience", "burn", "wait", "running"], ["calm", "urgent"]),
@@ -102,8 +103,20 @@ ENTRIES = [
        ["watch", "observe", "secret", "attention", "notice"], ["curious"]),
     _e("broken_chain", "a heavy iron chain snapped open with warm light bursting from the gap",
        ["chain", "free", "break", "habit", "freedom"], ["triumphant", "intense"]),
-    _e("shadow_follow", "a small figure walking with a longer darker shadow stretching behind",
-       ["shadow", "follow", "past", "guilt", "dark"], ["serious", "calm"]),
+    _e("rose_thorns", "a single wilting rose wrapped in dark barbed wire",
+       ["rose", "love", "pain", "toxic", "relationship"], ["serious", "intense"]),
+    _e("letter_burn", "an old handwritten letter burning slowly from one corner with glowing embers",
+       ["letter", "memory", "secret", "burn", "truth"], ["curious", "serious"]),
+    _e("crown_stone", "a heavy iron crown resting on a cracked stone pedestal in mist",
+       ["power", "crown", "ego", "burden", "king"], ["serious", "calm"]),
+    _e("door_ajar", "an old heavy door slightly open with blinding warm light pouring through the gap",
+       ["door", "opportunity", "secret", "light", "open"], ["curious", "triumphant"]),
+    _e("balloon_night", "one dark balloon escaping upward into a starry night sky, its string snapped",
+       ["freedom", "escape", "release", "let go", "rise"], ["triumphant", "calm"]),
+    _e("ice_key", "a golden key frozen inside a clear block of ice",
+       ["locked", "frozen", "secret", "access", "barrier"], ["curious", "serious"]),
+    _e("thread_snap", "a golden thread stretched to its breaking point between two iron hooks",
+       ["tension", "break", "limit", "pressure", "snap"], ["intense", "urgent"]),
     _e("twin_doors", "two doors side by side, one bright one dark, a hand hesitating between them",
        ["choice", "decision", "path", "hesitate", "pick"], ["curious", "urgent"]),
     _e("ladder_fog", "a wooden ladder climbing into thick fog with no top visible",
@@ -126,8 +139,6 @@ ENTRIES = [
        ["power", "empty", "ego", "throne", "fall"], ["serious", "calm"]),
     _e("glass_crack", "a drinking glass mid-shatter frozen in time with amber light inside",
        ["break", "fragile", "moment", "shatter", "pressure"], ["intense", "urgent"]),
-    _e("smoke_figure", "a human figure made of smoke dissolving from the feet up",
-       ["disappear", "fade", "vanish", "leave", "drift"], ["calm", "serious"]),
     _e("book_ember", "an open book with pages glowing and curling into embers at the edges",
        ["knowledge", "burn", "learn", "story", "read"], ["curious", "calm"]),
     _e("key_lock", "an old key turning in a lock with light spilling through the opening door",
@@ -138,10 +149,10 @@ ENTRIES = [
        ["past", "erase", "forget", "trace", "memory"], ["calm", "serious"]),
     _e("lantern_dark", "a hand holding a small lantern cutting through a vast dark forest",
        ["guide", "hope", "dark", "light", "alone"], ["calm", "triumphant"]),
-    _e("split_face", "a face split down the middle, one half calm and one half screaming",
-       ["two faces", "emotion", "hidden", "calm", "rage"], ["intense"]),
-    _e("weight_shrug", "a figure shrugging while carrying a huge boulder chained to their back",
-       ["burden", "effort", "carry", "work", "heavy"], ["serious", "urgent"]),
+    _e("whisper_hands", "two open hands cupped together with sound ripples drawn around them",
+       ["listen", "whisper", "influence", "talk", "words"], ["curious", "playful"]),
+    _e("mirror_hands", "two hands reaching toward each other through a mirror surface",
+       ["connect", "reach", "help", "ask", "mirror"], ["curious", "triumphant"]),
     _e("candle_gust", "a single candle flame bending hard in the wind but not going out",
        ["persist", "resist", "pressure", "endure", "flame"], ["intense", "triumphant"]),
     _e("needle_thread", "a needle pulling a golden thread stitching two torn pieces together",
@@ -150,10 +161,6 @@ ENTRIES = [
        ["absence", "lonely", "wait", "missing", "attention"], ["serious", "calm"]),
     _e("moth_flame", "a moth circling a bright flame dangerously close",
        ["attract", "desire", "pull", "danger", "draw"], ["curious", "urgent"]),
-    _e("whisper_ear", "a hand cupped near a giant ear with sound waves drawn as ripples",
-       ["listen", "whisper", "influence", "talk", "words"], ["curious", "playful"]),
-    _e("mirror_hands", "two hands reaching toward each other through a mirror surface",
-       ["connect", "reach", "help", "ask", "mirror"], ["curious", "triumphant"]),
 ]
 
 
@@ -219,6 +226,8 @@ def pick_cards_for_beats(beats: list[dict], run_key: str) -> dict[int, dict]:
     entries = load_entries()
     if not entries or not beats:
         return {}
+    # v2.1: human-figure entries are banned from selection entirely
+    entries = [e for e in entries if e["id"] not in NO_FIGURE_ENTRIES]
     reuse = _load_reuse()
 
     scored: list[tuple[float, str, dict, int]] = []   # (score, tiebreak, entry, beat_idx)

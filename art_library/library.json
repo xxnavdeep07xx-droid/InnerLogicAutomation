@@ -1,37 +1,6 @@
 {
-  "style_lock": ", dark surreal editorial illustration, deep violet and indigo palette, warm amber rim light highlights, grainy film texture, dramatic chiaroscuro lighting, minimal composition, cinematic mood, no text, no words, no watermark",
-  "note": "Hand-curated illustration concepts. Prompt + STYLE_SUFFIX go to Pollinations Flux. PNGs cached in cache/<id>.png and committed back by CI.",
+  "style_lock": ", dark surreal editorial illustration, deep violet and indigo palette, warm amber rim light highlights, grainy film texture, dramatic chiaroscuro lighting, ONE isolated subject centered on a plain dark empty background, minimal composition, no environment, no text, no words, no watermark",
   "entries": [
-    {
-      "id": "mirror_split",
-      "prompt": "a man looking at his cracked reflection in a tall mirror, the reflection smiling back differently",
-      "tags": [
-        "mirror",
-        "reflection",
-        "self",
-        "identity",
-        "honest"
-      ],
-      "emotions": [
-        "serious",
-        "intense"
-      ]
-    },
-    {
-      "id": "puppet_hands",
-      "prompt": "marionette puppet strings attached to a person's wrists held by a giant hand above",
-      "tags": [
-        "puppet",
-        "control",
-        "strings",
-        "manipulation",
-        "power"
-      ],
-      "emotions": [
-        "serious",
-        "intense"
-      ]
-    },
     {
       "id": "chess_king",
       "prompt": "a lone chess king piece standing on the board edge surrounded by fallen pieces",
@@ -48,38 +17,8 @@
       ]
     },
     {
-      "id": "mask_reveal",
-      "prompt": "a porcelain mask half removed revealing a shadowed face beneath",
-      "tags": [
-        "mask",
-        "hidden",
-        "truth",
-        "reveal",
-        "identity"
-      ],
-      "emotions": [
-        "curious",
-        "intense"
-      ]
-    },
-    {
-      "id": "crowd_blur",
-      "prompt": "one sharp figure standing still in a blurred rushing crowd",
-      "tags": [
-        "crowd",
-        "alone",
-        "different",
-        "society",
-        "stand"
-      ],
-      "emotions": [
-        "serious",
-        "urgent"
-      ]
-    },
-    {
       "id": "storm_head",
-      "prompt": "a dark storm cloud swirling inside a glass head silhouette",
+      "prompt": "a dark storm cloud swirling inside a transparent glass head sculpture",
       "tags": [
         "mind",
         "thought",
@@ -152,18 +91,108 @@
       ]
     },
     {
-      "id": "shadow_follow",
-      "prompt": "a small figure walking with a longer darker shadow stretching behind",
+      "id": "rose_thorns",
+      "prompt": "a single wilting rose wrapped in dark barbed wire",
       "tags": [
-        "shadow",
-        "follow",
-        "past",
-        "guilt",
-        "dark"
+        "rose",
+        "love",
+        "pain",
+        "toxic",
+        "relationship"
+      ],
+      "emotions": [
+        "serious",
+        "intense"
+      ]
+    },
+    {
+      "id": "letter_burn",
+      "prompt": "an old handwritten letter burning slowly from one corner with glowing embers",
+      "tags": [
+        "letter",
+        "memory",
+        "secret",
+        "burn",
+        "truth"
+      ],
+      "emotions": [
+        "curious",
+        "serious"
+      ]
+    },
+    {
+      "id": "crown_stone",
+      "prompt": "a heavy iron crown resting on a cracked stone pedestal in mist",
+      "tags": [
+        "power",
+        "crown",
+        "ego",
+        "burden",
+        "king"
       ],
       "emotions": [
         "serious",
         "calm"
+      ]
+    },
+    {
+      "id": "door_ajar",
+      "prompt": "an old heavy door slightly open with blinding warm light pouring through the gap",
+      "tags": [
+        "door",
+        "opportunity",
+        "secret",
+        "light",
+        "open"
+      ],
+      "emotions": [
+        "curious",
+        "triumphant"
+      ]
+    },
+    {
+      "id": "balloon_night",
+      "prompt": "one dark balloon escaping upward into a starry night sky, its string snapped",
+      "tags": [
+        "freedom",
+        "escape",
+        "release",
+        "let go",
+        "rise"
+      ],
+      "emotions": [
+        "triumphant",
+        "calm"
+      ]
+    },
+    {
+      "id": "ice_key",
+      "prompt": "a golden key frozen inside a clear block of ice",
+      "tags": [
+        "locked",
+        "frozen",
+        "secret",
+        "access",
+        "barrier"
+      ],
+      "emotions": [
+        "curious",
+        "serious"
+      ]
+    },
+    {
+      "id": "thread_snap",
+      "prompt": "a golden thread stretched to its breaking point between two iron hooks",
+      "tags": [
+        "tension",
+        "break",
+        "limit",
+        "pressure",
+        "snap"
+      ],
+      "emotions": [
+        "intense",
+        "urgent"
       ]
     },
     {
@@ -330,21 +359,6 @@
       ]
     },
     {
-      "id": "smoke_figure",
-      "prompt": "a human figure made of smoke dissolving from the feet up",
-      "tags": [
-        "disappear",
-        "fade",
-        "vanish",
-        "leave",
-        "drift"
-      ],
-      "emotions": [
-        "calm",
-        "serious"
-      ]
-    },
-    {
       "id": "book_ember",
       "prompt": "an open book with pages glowing and curling into embers at the edges",
       "tags": [
@@ -420,32 +434,33 @@
       ]
     },
     {
-      "id": "split_face",
-      "prompt": "a face split down the middle, one half calm and one half screaming",
+      "id": "whisper_hands",
+      "prompt": "two open hands cupped together with sound ripples drawn around them",
       "tags": [
-        "two faces",
-        "emotion",
-        "hidden",
-        "calm",
-        "rage"
+        "listen",
+        "whisper",
+        "influence",
+        "talk",
+        "words"
       ],
       "emotions": [
-        "intense"
+        "curious",
+        "playful"
       ]
     },
     {
-      "id": "weight_shrug",
-      "prompt": "a figure shrugging while carrying a huge boulder chained to their back",
+      "id": "mirror_hands",
+      "prompt": "two hands reaching toward each other through a mirror surface",
       "tags": [
-        "burden",
-        "effort",
-        "carry",
-        "work",
-        "heavy"
+        "connect",
+        "reach",
+        "help",
+        "ask",
+        "mirror"
       ],
       "emotions": [
-        "serious",
-        "urgent"
+        "curious",
+        "triumphant"
       ]
     },
     {
@@ -506,36 +521,6 @@
       "emotions": [
         "curious",
         "urgent"
-      ]
-    },
-    {
-      "id": "whisper_ear",
-      "prompt": "a hand cupped near a giant ear with sound waves drawn as ripples",
-      "tags": [
-        "listen",
-        "whisper",
-        "influence",
-        "talk",
-        "words"
-      ],
-      "emotions": [
-        "curious",
-        "playful"
-      ]
-    },
-    {
-      "id": "mirror_hands",
-      "prompt": "two hands reaching toward each other through a mirror surface",
-      "tags": [
-        "connect",
-        "reach",
-        "help",
-        "ask",
-        "mirror"
-      ],
-      "emotions": [
-        "curious",
-        "triumphant"
       ]
     }
   ]
