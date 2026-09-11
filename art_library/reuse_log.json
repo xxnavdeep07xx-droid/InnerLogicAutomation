@@ -40,6 +40,17 @@
       "scale_tipping",
       "shadow_follow",
       "smoke_figure"
+    ],
+    "run_20260911_063406": [
+      "balloon_night",
+      "candle_gust",
+      "crown_stone",
+      "door_ajar",
+      "ice_key",
+      "ladder_fog",
+      "lantern_dark",
+      "rope_fray",
+      "rose_thorns"
     ]
   },
   "totals": {}
