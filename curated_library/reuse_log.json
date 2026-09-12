@@ -9,22 +9,22 @@
     "clock_gears": 2,
     "crowd_anonymous": 1,
     "door_light": 2,
-    "empty_corridor": 3,
+    "empty_corridor": 4,
     "eye_closeup": 2,
     "forest_fog": 1,
     "hands_writing": 6,
     "light_particles": 4,
     "marble_bust": 3,
     "mask_shadow": 1,
-    "mirror_identity": 5,
+    "mirror_identity": 6,
     "paper_burn": 3,
     "puppet_ropes": 2,
-    "shattered_glass": 5,
+    "shattered_glass": 6,
     "solo_figure": 2,
     "storm_clouds": 9,
     "wave_crash": 3,
     "weighing_scale": 9,
-    "whisper_shadow": 9
+    "whisper_shadow": 10
   },
   "videos": {
     "fixture_v2": {
@@ -133,6 +133,12 @@
       "paper_burn": 1,
       "shattered_glass": 1,
       "weighing_scale": 1
+    },
+    "run_20260912_174235": {
+      "empty_corridor": 1,
+      "mirror_identity": 1,
+      "shattered_glass": 1,
+      "whisper_shadow": 1
     }
   }
 }

@@ -69,6 +69,15 @@
       "door_ajar",
       "hand_release",
       "moth_flame"
+    ],
+    "run_20260912_174235": [
+      "clocks_wall",
+      "empty_chair",
+      "eye_keyhole",
+      "key_lock",
+      "throne_dust",
+      "twin_doors",
+      "whisper_hands"
     ]
   },
   "totals": {}
