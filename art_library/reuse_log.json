@@ -78,6 +78,14 @@
       "throne_dust",
       "twin_doors",
       "whisper_hands"
+    ],
+    "run_20260913_175653": [
+      "candle_gust",
+      "door_ajar",
+      "glass_crack",
+      "hand_release",
+      "lantern_dark",
+      "maze_brain"
     ]
   },
   "totals": {}
