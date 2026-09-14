@@ -1,8 +1,38 @@
 {
- "updated_at": "2026-09-13T18:05:37+00:00",
+ "updated_at": "2026-09-14T19:56:04+00:00",
  "drop_time_utc": "15:00",
  "repo": "xxnavdeep07xx-droid/InnerLogicAutomation",
  "videos": [
+  {
+   "tag": "daily-20260914",
+   "run_id": "run_20260914_194457",
+   "created_at": "2026-09-14T19:56:00+00:00",
+   "title": "Your Opinions Are Not Yours",
+   "description": "Your Opinions Are Not Yours\n\nYour personal taste is nothing but a stolen consensus. You don't choose what is beautiful or true. You simply scan the room to see what everyone else fears. Humans are terrified of being the only one holding a wrong opinion. So your brain automatically adopts the majority filter. You call it your opinion. Nature calls it survival of the herd. Stop pretending you're the one in control.\n\n#darkpsychology #philosophy #manipulation #humanbehavior #stoicism #Shorts",
+   "tags": [
+    "darkpsychology",
+    "philosophy",
+    "manipulation",
+    "humanbehavior",
+    "stoicism",
+    "shorts",
+    "dark psychology",
+    "mindset"
+   ],
+   "ig_caption": "Your Opinions Are Not Yours\n\n#darkpsychology #philosophy #manipulation #humanbehavior #stoicism",
+   "hashtags": [
+    "#darkpsychology",
+    "#philosophy",
+    "#manipulation",
+    "#humanbehavior",
+    "#stoicism"
+   ],
+   "video_file": "final_short.mp4",
+   "thumb_file": "hook_youtube.jpg",
+   "video_url": "https://github.com/xxnavdeep07xx-droid/InnerLogicAutomation/releases/download/daily-20260914/final_short.mp4",
+   "thumb_url": "https://github.com/xxnavdeep07xx-droid/InnerLogicAutomation/releases/download/daily-20260914/hook_youtube.jpg",
+   "release_url": "https://github.com/xxnavdeep07xx-droid/InnerLogicAutomation/releases/tag/daily-20260914"
+  },
   {
    "tag": "daily-20260913",
    "run_id": "run_20260913_175653",
