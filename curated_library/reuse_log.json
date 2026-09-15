@@ -8,24 +8,25 @@
     "city_night": 1,
     "clock_gears": 2,
     "crowd_anonymous": 2,
-    "door_light": 2,
+    "door_light": 3,
     "empty_corridor": 4,
     "eye_closeup": 3,
-    "fire_embers": 1,
+    "fire_embers": 2,
     "forest_fog": 1,
     "hands_writing": 6,
     "light_particles": 5,
-    "marble_bust": 4,
+    "marble_bust": 5,
     "mask_shadow": 1,
     "mirror_identity": 7,
+    "mountain_summit": 1,
     "paper_burn": 3,
     "puppet_ropes": 2,
     "shattered_glass": 6,
     "solo_figure": 3,
-    "storm_clouds": 10,
+    "storm_clouds": 11,
     "wave_crash": 4,
     "weighing_scale": 9,
-    "whisper_shadow": 11
+    "whisper_shadow": 12
   },
   "videos": {
     "fixture_v2": {
@@ -156,6 +157,14 @@
       "mirror_identity": 1,
       "solo_figure": 1,
       "wave_crash": 1,
+      "whisper_shadow": 1
+    },
+    "run_20260915_184418": {
+      "door_light": 1,
+      "fire_embers": 1,
+      "marble_bust": 1,
+      "mountain_summit": 1,
+      "storm_clouds": 1,
       "whisper_shadow": 1
     }
   }
