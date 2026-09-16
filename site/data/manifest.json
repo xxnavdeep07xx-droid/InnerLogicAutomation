@@ -1,8 +1,35 @@
 {
- "updated_at": "2026-09-15T18:54:26+00:00",
+ "updated_at": "2026-09-16T18:55:16+00:00",
  "drop_time_utc": "15:00",
  "repo": "xxnavdeep07xx-droid/InnerLogicAutomation",
  "videos": [
+  {
+   "tag": "daily-20260916",
+   "run_id": "run_20260916_184206",
+   "created_at": "2026-09-16T18:55:13+00:00",
+   "title": "Why You Should Actually Embrace Your Worst Misfortunes",
+   "description": "Why You Should Actually Embrace Your Worst Misfortunes\n\nYour worst misfortunes are actually your greatest advantages. The Stoics called this Amor Fati. It means loving not just what happens, but needing it to happen. Most people treat life like a fight against a current. They exhaust themselves trying to fix things they cannot control. But when you embrace the disaster, it loses its power. Don't just survive the fire, use it to forge your iron. Stop wishing for an easy life and start demanding a harder one.\n\n#stoicism #darkpsychology #philosophy #mindset #Shorts",
+   "tags": [
+    "stoicism",
+    "darkpsychology",
+    "philosophy",
+    "mindset",
+    "shorts",
+    "dark psychology"
+   ],
+   "ig_caption": "Why You Should Actually Embrace Your Worst Misfortunes\n\n#stoicism #darkpsychology #philosophy #mindset",
+   "hashtags": [
+    "#stoicism",
+    "#darkpsychology",
+    "#philosophy",
+    "#mindset"
+   ],
+   "video_file": "final_short.mp4",
+   "thumb_file": "hook_youtube.jpg",
+   "video_url": "https://github.com/xxnavdeep07xx-droid/InnerLogicAutomation/releases/download/daily-20260916/final_short.mp4",
+   "thumb_url": "https://github.com/xxnavdeep07xx-droid/InnerLogicAutomation/releases/download/daily-20260916/hook_youtube.jpg",
+   "release_url": "https://github.com/xxnavdeep07xx-droid/InnerLogicAutomation/releases/tag/daily-20260916"
+  },
   {
    "tag": "daily-20260915",
    "run_id": "run_20260915_184418",
