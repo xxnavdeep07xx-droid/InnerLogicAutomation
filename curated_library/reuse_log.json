@@ -1,7 +1,7 @@
 {
   "totals": {
     "brain_neurons": 7,
-    "calm_water": 6,
+    "calm_water": 7,
     "candle_focus": 8,
     "chains_rust": 2,
     "chess_strategy": 5,
@@ -14,8 +14,8 @@
     "fire_embers": 2,
     "forest_fog": 1,
     "hands_writing": 6,
-    "light_particles": 5,
-    "marble_bust": 5,
+    "light_particles": 6,
+    "marble_bust": 6,
     "mask_shadow": 1,
     "mirror_identity": 7,
     "mountain_summit": 1,
@@ -23,7 +23,7 @@
     "puppet_ropes": 2,
     "shattered_glass": 6,
     "solo_figure": 3,
-    "storm_clouds": 11,
+    "storm_clouds": 13,
     "wave_crash": 4,
     "weighing_scale": 9,
     "whisper_shadow": 12
@@ -166,6 +166,12 @@
       "mountain_summit": 1,
       "storm_clouds": 1,
       "whisper_shadow": 1
+    },
+    "run_20260916_184206": {
+      "calm_water": 1,
+      "light_particles": 1,
+      "marble_bust": 1,
+      "storm_clouds": 2
     }
   }
 }

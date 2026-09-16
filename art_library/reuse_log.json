@@ -100,6 +100,14 @@
       "mirror_hands",
       "rope_fray",
       "storm_head"
+    ],
+    "run_20260916_184206": [
+      "candle_gust",
+      "door_ajar",
+      "iceberg_tip",
+      "lantern_dark",
+      "storm_head",
+      "thread_snap"
     ]
   },
   "totals": {}
