@@ -1,8 +1,37 @@
 {
- "updated_at": "2026-09-16T18:55:16+00:00",
+ "updated_at": "2026-09-17T19:03:56+00:00",
  "drop_time_utc": "15:00",
  "repo": "xxnavdeep07xx-droid/InnerLogicAutomation",
  "videos": [
+  {
+   "tag": "daily-20260917",
+   "run_id": "run_20260917_185057",
+   "created_at": "2026-09-17T19:02:21+00:00",
+   "title": "Why Having Too Many Options Is Destroying Your Happiness",
+   "description": "Why Having Too Many Options Is Destroying Your Happiness\n\nHaving more options is actually destroying your ability to choose. It is called the paradox of choice. When you have too many paths, you become paralyzed by doubt. Your brain begins mourning the freedom you lost in every other option. You do not feel empowered. You feel regret. Even if you choose the best item, you feel worse. Happiness is not found in having more, but in wanting less. Cut your options in half today and reclaim your peace.\n\n#philosophy #psychology #darkpsychology #stoicism #mindset #Shorts",
+   "tags": [
+    "philosophy",
+    "psychology",
+    "darkpsychology",
+    "stoicism",
+    "mindset",
+    "shorts",
+    "dark psychology"
+   ],
+   "ig_caption": "Why Having Too Many Options Is Destroying Your Happiness\n\n#philosophy #psychology #darkpsychology #stoicism #mindset",
+   "hashtags": [
+    "#philosophy",
+    "#psychology",
+    "#darkpsychology",
+    "#stoicism",
+    "#mindset"
+   ],
+   "video_file": "final_short.mp4",
+   "thumb_file": "hook_youtube.jpg",
+   "video_url": "https://github.com/xxnavdeep07xx-droid/InnerLogicAutomation/releases/download/daily-20260917/final_short.mp4",
+   "thumb_url": "https://github.com/xxnavdeep07xx-droid/InnerLogicAutomation/releases/download/daily-20260917/hook_youtube.jpg",
+   "release_url": "https://github.com/xxnavdeep07xx-droid/InnerLogicAutomation/releases/tag/daily-20260917"
+  },
   {
    "tag": "daily-20260916",
    "run_id": "run_20260916_184206",
