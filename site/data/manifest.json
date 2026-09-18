@@ -1,8 +1,38 @@
 {
- "updated_at": "2026-09-17T19:03:56+00:00",
+ "updated_at": "2026-09-18T18:18:21+00:00",
  "drop_time_utc": "15:00",
  "repo": "xxnavdeep07xx-droid/InnerLogicAutomation",
  "videos": [
+  {
+   "tag": "daily-20260918",
+   "run_id": "run_20260918_180811",
+   "created_at": "2026-09-18T18:18:18+00:00",
+   "title": "Why Your Brain Is Holding You Hostage",
+   "description": "Why Your Brain Is Holding You Hostage\n\nYour brain is holding you hostage with unfinished business. This is the Zeigarnik effect. The human mind cannot handle incomplete tasks. It keeps them burning in your active memory. You aren't stressed because you're busy. You're stressed because you haven't closed the loop. Even starting a task releases the mental pressure. Stop thinking and just make the first move. Break the loop by doing the one thing you're avoiding.\n\n#darkpsychology #psychology #mindset #productivity #philosophy #Shorts",
+   "tags": [
+    "darkpsychology",
+    "psychology",
+    "mindset",
+    "productivity",
+    "philosophy",
+    "shorts",
+    "dark psychology",
+    "stoicism"
+   ],
+   "ig_caption": "Why Your Brain Is Holding You Hostage\n\n#darkpsychology #psychology #mindset #productivity #philosophy",
+   "hashtags": [
+    "#darkpsychology",
+    "#psychology",
+    "#mindset",
+    "#productivity",
+    "#philosophy"
+   ],
+   "video_file": "final_short.mp4",
+   "thumb_file": "hook_youtube.jpg",
+   "video_url": "https://github.com/xxnavdeep07xx-droid/InnerLogicAutomation/releases/download/daily-20260918/final_short.mp4",
+   "thumb_url": "https://github.com/xxnavdeep07xx-droid/InnerLogicAutomation/releases/download/daily-20260918/hook_youtube.jpg",
+   "release_url": "https://github.com/xxnavdeep07xx-droid/InnerLogicAutomation/releases/tag/daily-20260918"
+  },
   {
    "tag": "daily-20260917",
    "run_id": "run_20260917_185057",
