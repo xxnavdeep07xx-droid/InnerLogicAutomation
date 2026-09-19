@@ -7,7 +7,7 @@
     "chess_strategy": 5,
     "city_night": 1,
     "clock_gears": 2,
-    "crowd_anonymous": 2,
+    "crowd_anonymous": 3,
     "door_light": 3,
     "empty_corridor": 5,
     "eye_closeup": 3,
@@ -17,16 +17,16 @@
     "light_particles": 9,
     "marble_bust": 6,
     "mask_shadow": 1,
-    "mirror_identity": 7,
+    "mirror_identity": 8,
     "mountain_summit": 1,
     "paper_burn": 3,
     "puppet_ropes": 2,
     "shattered_glass": 6,
-    "solo_figure": 3,
+    "solo_figure": 4,
     "storm_clouds": 14,
     "wave_crash": 5,
     "weighing_scale": 9,
-    "whisper_shadow": 13
+    "whisper_shadow": 14
   },
   "videos": {
     "fixture_v2": {
@@ -187,6 +187,12 @@
       "forest_fog": 1,
       "light_particles": 2,
       "storm_clouds": 1
+    },
+    "run_20260919_174930": {
+      "crowd_anonymous": 1,
+      "mirror_identity": 1,
+      "solo_figure": 1,
+      "whisper_shadow": 1
     }
   }
 }

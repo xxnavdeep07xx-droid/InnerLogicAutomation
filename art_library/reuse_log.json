@@ -126,6 +126,14 @@
       "ladder_fog",
       "moth_flame",
       "thread_snap"
+    ],
+    "run_20260919_174930": [
+      "candle_gust",
+      "clocks_wall",
+      "crown_stone",
+      "hand_release",
+      "mirror_hands",
+      "throne_dust"
     ]
   },
   "totals": {}
