@@ -134,6 +134,14 @@
       "hand_release",
       "mirror_hands",
       "throne_dust"
+    ],
+    "run_20260920_180120": [
+      "balloon_night",
+      "empty_chair",
+      "ice_key",
+      "key_lock",
+      "thread_snap",
+      "twin_doors"
     ]
   },
   "totals": {}
