@@ -1,8 +1,37 @@
 {
- "updated_at": "2026-09-20T18:15:36+00:00",
+ "updated_at": "2026-09-21T20:06:11+00:00",
  "drop_time_utc": "15:00",
  "repo": "xxnavdeep07xx-droid/InnerLogicAutomation",
  "videos": [
+  {
+   "tag": "daily-20260921",
+   "run_id": "run_20260921_195335",
+   "created_at": "2026-09-21T20:06:08+00:00",
+   "title": "Nobody Noticed Your Embarrassing Mistake Today",
+   "description": "Nobody Noticed Your Embarrassing Mistake Today\n\nNobody noticed the embarrassing mistake you made today. Psychology calls this the spotlight effect. You assume an invisible camera tracks your every flaw. In reality, everyone else is trapped in their own head. Researchers tested this by forcing students into ridiculous shirts. The wearers swore half the campus saw their shame. In truth, less than twenty percent even looked up. Your worst moments exist only in your own memory. Forgive yourself and move on. Nobody is keeping score.\n\n#psychology #darkpsychology #stoicism #selfimprovement #Shorts",
+   "tags": [
+    "psychology",
+    "darkpsychology",
+    "stoicism",
+    "selfimprovement",
+    "shorts",
+    "philosophy",
+    "dark psychology",
+    "mindset"
+   ],
+   "ig_caption": "Nobody Noticed Your Embarrassing Mistake Today\n\n#psychology #darkpsychology #stoicism #selfimprovement",
+   "hashtags": [
+    "#psychology",
+    "#darkpsychology",
+    "#stoicism",
+    "#selfimprovement"
+   ],
+   "video_file": "final_short.mp4",
+   "thumb_file": "hook_youtube.jpg",
+   "video_url": "https://github.com/xxnavdeep07xx-droid/InnerLogicAutomation/releases/download/daily-20260921/final_short.mp4",
+   "thumb_url": "https://github.com/xxnavdeep07xx-droid/InnerLogicAutomation/releases/download/daily-20260921/hook_youtube.jpg",
+   "release_url": "https://github.com/xxnavdeep07xx-droid/InnerLogicAutomation/releases/tag/daily-20260921"
+  },
   {
    "tag": "daily-20260920",
    "run_id": "run_20260920_180120",
