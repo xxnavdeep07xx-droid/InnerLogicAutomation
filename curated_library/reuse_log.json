@@ -9,19 +9,19 @@
     "clock_gears": 2,
     "crowd_anonymous": 3,
     "door_light": 3,
-    "empty_corridor": 5,
+    "empty_corridor": 6,
     "eye_closeup": 3,
-    "fire_embers": 2,
+    "fire_embers": 3,
     "forest_fog": 3,
     "hands_writing": 6,
     "light_particles": 9,
     "marble_bust": 7,
     "mask_shadow": 1,
-    "mirror_identity": 8,
+    "mirror_identity": 9,
     "mountain_summit": 1,
     "paper_burn": 4,
     "puppet_ropes": 2,
-    "shattered_glass": 6,
+    "shattered_glass": 7,
     "solo_figure": 4,
     "storm_clouds": 14,
     "wave_crash": 5,
@@ -201,6 +201,12 @@
       "marble_bust": 1,
       "paper_burn": 1,
       "weighing_scale": 1
+    },
+    "run_20260921_195335": {
+      "empty_corridor": 1,
+      "fire_embers": 1,
+      "mirror_identity": 1,
+      "shattered_glass": 1
     }
   }
 }

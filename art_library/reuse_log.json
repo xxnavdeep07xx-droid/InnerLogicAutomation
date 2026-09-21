@@ -142,6 +142,14 @@
       "key_lock",
       "thread_snap",
       "twin_doors"
+    ],
+    "run_20260921_195335": [
+      "compass_spin",
+      "eye_keyhole",
+      "hourglass_ember",
+      "lantern_dark",
+      "mirror_hands",
+      "throne_dust"
     ]
   },
   "totals": {}
