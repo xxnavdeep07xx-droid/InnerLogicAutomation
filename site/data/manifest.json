@@ -1,8 +1,36 @@
 {
- "updated_at": "2026-09-21T20:06:11+00:00",
+ "updated_at": "2026-09-22T18:54:28+00:00",
  "drop_time_utc": "15:00",
  "repo": "xxnavdeep07xx-droid/InnerLogicAutomation",
  "videos": [
+  {
+   "tag": "daily-20260922",
+   "run_id": "run_20260922_183300",
+   "created_at": "2026-09-22T18:54:23+00:00",
+   "title": "Why Having More Choices Is Ruining Your Life",
+   "description": "Why Having More Choices Is Ruining Your Life\n\nThe more choices you have, the less happy you actually become. It is called the paradox of choice. Your brain panics when faced with too many paths. You stop deciding and start fearing you chose the wrong one. Even when you pick, you feel regret for the options ignored. A world of endless possibility is a world of constant anxiety. Stop chasing more freedom. Start choosing less to live more. Delete your options today and feel the weight vanish.\n\n#psychology #philosophy #mindset #darkpsychology #Shorts",
+   "tags": [
+    "psychology",
+    "philosophy",
+    "mindset",
+    "darkpsychology",
+    "shorts",
+    "dark psychology",
+    "stoicism"
+   ],
+   "ig_caption": "Why Having More Choices Is Ruining Your Life\n\n#psychology #philosophy #mindset #darkpsychology",
+   "hashtags": [
+    "#psychology",
+    "#philosophy",
+    "#mindset",
+    "#darkpsychology"
+   ],
+   "video_file": "final_short.mp4",
+   "thumb_file": "hook_youtube.jpg",
+   "video_url": "https://github.com/xxnavdeep07xx-droid/InnerLogicAutomation/releases/download/daily-20260922/final_short.mp4",
+   "thumb_url": "https://github.com/xxnavdeep07xx-droid/InnerLogicAutomation/releases/download/daily-20260922/hook_youtube.jpg",
+   "release_url": "https://github.com/xxnavdeep07xx-droid/InnerLogicAutomation/releases/tag/daily-20260922"
+  },
   {
    "tag": "daily-20260921",
    "run_id": "run_20260921_195335",
