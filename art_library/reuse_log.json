@@ -155,6 +155,13 @@
       "iceberg_tip",
       "ladder_fog",
       "twin_doors"
+    ],
+    "run_20260923_185321": [
+      "crown_stone",
+      "door_ajar",
+      "hand_release",
+      "lantern_dark",
+      "mirror_hands"
     ]
   },
   "totals": {}
