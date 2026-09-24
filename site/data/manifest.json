@@ -1,8 +1,35 @@
 {
- "updated_at": "2026-09-23T19:05:54+00:00",
+ "updated_at": "2026-09-24T19:07:17+00:00",
  "drop_time_utc": "15:00",
  "repo": "xxnavdeep07xx-droid/InnerLogicAutomation",
  "videos": [
+  {
+   "tag": "daily-20260924",
+   "run_id": "run_20260924_185140",
+   "created_at": "2026-09-24T19:07:12+00:00",
+   "title": "Why You Must Visualize Losing Everything You Love",
+   "description": "Why You Must Visualize Losing Everything You Love\n\nYou are currently losing everything you love. The Stoics called this practice Premediatio Malorum. It means visualizing your worst nightmares in vivid detail. Imagine your bank account hitting zero tonight. Imagine the last time you will ever see your partner. Most people call this pessimism. Stoics call it armor. By rehearsing the loss, you kill its power to hurt you. You aren't mourning the future. You are mastering it. Prepare for the worst, and you become impossible to break.\n\n#stoicism #darkpsychology #philosophy #mindset #Shorts",
+   "tags": [
+    "stoicism",
+    "darkpsychology",
+    "philosophy",
+    "mindset",
+    "shorts",
+    "dark psychology"
+   ],
+   "ig_caption": "Why You Must Visualize Losing Everything You Love\n\n#stoicism #darkpsychology #philosophy #mindset",
+   "hashtags": [
+    "#stoicism",
+    "#darkpsychology",
+    "#philosophy",
+    "#mindset"
+   ],
+   "video_file": "final_short.mp4",
+   "thumb_file": "hook_youtube.jpg",
+   "video_url": "https://github.com/xxnavdeep07xx-droid/InnerLogicAutomation/releases/download/daily-20260924/final_short.mp4",
+   "thumb_url": "https://github.com/xxnavdeep07xx-droid/InnerLogicAutomation/releases/download/daily-20260924/hook_youtube.jpg",
+   "release_url": "https://github.com/xxnavdeep07xx-droid/InnerLogicAutomation/releases/tag/daily-20260924"
+  },
   {
    "tag": "daily-20260923",
    "run_id": "run_20260923_185321",
