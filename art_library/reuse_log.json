@@ -162,6 +162,15 @@
       "hand_release",
       "lantern_dark",
       "mirror_hands"
+    ],
+    "run_20260924_185140": [
+      "balloon_night",
+      "book_ember",
+      "candle_gust",
+      "chess_king",
+      "clocks_wall",
+      "door_ajar",
+      "throne_dust"
     ]
   },
   "totals": {}

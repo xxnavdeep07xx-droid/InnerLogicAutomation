@@ -1,30 +1,31 @@
 {
   "totals": {
     "brain_neurons": 8,
-    "calm_water": 9,
-    "candle_focus": 11,
+    "calm_water": 10,
+    "candle_focus": 12,
     "chains_rust": 4,
     "chess_strategy": 5,
     "city_night": 1,
     "clock_gears": 2,
     "crowd_anonymous": 3,
     "door_light": 3,
-    "empty_corridor": 6,
+    "empty_corridor": 7,
     "eye_closeup": 3,
     "fire_embers": 3,
     "forest_fog": 4,
     "hands_writing": 6,
-    "light_particles": 11,
+    "hourglass_time": 1,
+    "light_particles": 12,
     "marble_bust": 7,
     "mask_shadow": 1,
     "mirror_identity": 9,
     "mountain_summit": 1,
     "paper_burn": 4,
     "puppet_ropes": 2,
-    "shattered_glass": 8,
+    "shattered_glass": 9,
     "solo_figure": 5,
     "storm_clouds": 15,
-    "wave_crash": 7,
+    "wave_crash": 8,
     "weighing_scale": 10,
     "whisper_shadow": 15
   },
@@ -222,6 +223,15 @@
       "storm_clouds": 1,
       "wave_crash": 1,
       "whisper_shadow": 1
+    },
+    "run_20260924_185140": {
+      "calm_water": 1,
+      "candle_focus": 1,
+      "empty_corridor": 1,
+      "hourglass_time": 1,
+      "light_particles": 1,
+      "shattered_glass": 1,
+      "wave_crash": 1
     }
   }
 }
