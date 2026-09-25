@@ -171,6 +171,12 @@
       "clocks_wall",
       "door_ajar",
       "throne_dust"
+    ],
+    "run_20260925_190913": [
+      "candle_gust",
+      "door_ajar",
+      "glass_crack",
+      "lantern_dark"
     ]
   },
   "totals": {}
